@@ -515,8 +515,8 @@ def create_app(config_class=Config):
                 cnt_t = 1
             if cnt_t == 0:
                 conn.execute(text(
-                    "INSERT INTO coaching_thema_items (name, \"position\", is_active, project_id) VALUES "
-                    "('Sales', 1, true, NULL), ('Qualität', 2, true, NULL), ('Allgemein', 3, true, NULL)"
+                    "INSERT INTO coaching_thema_items (name, \"position\", is_active, created_at, project_id) VALUES "
+                    "('Sales', 1, true, NOW(), NULL), ('Qualität', 2, true, NOW(), NULL), ('Allgemein', 3, true, NOW(), NULL)"
                 ))
                 conn.commit()
                 print("✅ Standard coaching_thema_items eingefügt.")
