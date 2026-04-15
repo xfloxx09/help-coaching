@@ -929,7 +929,7 @@ def edit_team(team_id):
 
     elif request.method == 'GET':
         form.name.data = team_to_edit.name
-        form.team_leaders.data = [leader.id for leader in team_to_edit.leaders.all()]
+        form.team_leaders.data = [leader.id for leader in team_to_edit.leaders]
         form.project_id.data = team_to_edit.project_id
         form.active_for_coaching.data = team_to_edit.active_for_coaching
 
@@ -944,7 +944,7 @@ def delete_team(team_id):
     if team.name == ARCHIV_TEAM_NAME:
         flash('Das ARCHIV-Team kann nicht gelöscht werden.', 'danger')
         return redirect(url_for('admin.panel'))
-    if team.members.count() > 0:
+    if len(team.members) > 0:
         flash('Team kann nicht gelöscht werden, da ihm noch Mitglieder zugeordnet sind. Verschieben Sie die Mitglieder zuerst ins Archiv.', 'danger')
         return redirect(url_for('admin.panel'))
 
