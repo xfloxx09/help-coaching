@@ -2124,7 +2124,27 @@ def add_coaching():
         if current_user_role == ROLE_TEAMLEITER else []
     )
     form = CoachingForm(current_user_role=current_user_role, current_user_team_ids=current_user_team_ids)
-    form.update_team_member_choices(exclude_archiv=True, project_id=project_id)
+    assignment_member_ids = [
+        row[0]
+        for row in (
+            db.session.query(AssignedCoaching.team_member_id)
+            .join(TeamMember, AssignedCoaching.team_member_id == TeamMember.id)
+            .join(Team, TeamMember.team_id == Team.id)
+            .filter(
+                AssignedCoaching.coach_id == current_user.id,
+                AssignedCoaching.status.in_(['pending', 'accepted', 'in_progress']),
+                Team.project_id == project_id,
+                Team.name != ARCHIV_TEAM_NAME,
+            )
+            .distinct()
+            .all()
+        )
+    ]
+    form.update_team_member_choices(
+        exclude_archiv=True,
+        project_id=project_id,
+        include_member_ids=assignment_member_ids,
+    )
     form.apply_bogen(project_id)
     leitfaden_items = leitfaden_items_for_project(project_id)
     bogen_layout = bogen_layout_for_project(project_id)
@@ -2235,7 +2255,11 @@ def add_coaching():
     assigned_id = request.args.get('assigned_id', type=int)
     if assigned_id:
         assignment = AssignedCoaching.query.get(assigned_id)
-        if assignment and assignment.coach_id == current_user.id and assignment.status == 'pending':
+        if (
+            assignment
+            and assignment.coach_id == current_user.id
+            and assignment.status in ('pending', 'accepted', 'in_progress')
+        ):
             tm_a = TeamMember.query.get(assignment.team_member_id)
             if not team_member_eligible_for_new_coaching(tm_a):
                 flash('Diese Aufgabe kann nicht angenommen werden: Das Team ist für neue Coachings deaktiviert.', 'danger')
@@ -2244,9 +2268,11 @@ def add_coaching():
                 form.team_member_id.data = assignment.team_member_id
                 if assignment.desired_performance_note:
                     form.performance_mark.data = assignment.desired_performance_note
+                was_pending = assignment.status == 'pending'
                 assignment.status = 'accepted'
-                db.session.commit()
-                flash('Coaching-Aufgabe angenommen.', 'success')
+                if was_pending:
+                    db.session.commit()
+                    flash('Coaching-Aufgabe angenommen.', 'success')
         else:
             flash('Ungültige oder nicht verfügbare Aufgabe.', 'danger')
 
@@ -3885,6 +3911,7 @@ def accept_assigned_coaching(assignment_id):
             assignment.status = 'accepted'
             db.session.commit()
             flash('Aufgabe angenommen.', 'success')
+            return redirect(url_for('main.add_coaching', project=list_pid, assigned_id=assignment.id))
     else:
         flash('Aufgabe kann nicht angenommen werden.', 'warning')
     return redirect(url_for('main.assigned_coachings', project=list_pid))
