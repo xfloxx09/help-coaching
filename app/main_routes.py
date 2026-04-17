@@ -449,8 +449,11 @@ def _sync_assigned_coaching_status_from_progress(assignment):
     if done >= exp:
         if st in ('pending', 'accepted', 'in_progress'):
             assignment.status = 'completed'
+    elif done > 0:
+        if st in ('pending', 'accepted'):
+            assignment.status = 'in_progress'
     elif st == 'completed':
-        assignment.status = 'in_progress' if done > 0 else 'accepted'
+        assignment.status = 'accepted'
 
 
 def _user_can_assign_coachings():
@@ -2226,8 +2229,6 @@ def add_coaching():
         if form.assigned_coaching_id.data and form.assigned_coaching_id.data != 0:
             coaching.assigned_coaching_id = form.assigned_coaching_id.data
             linked_assignment = AssignedCoaching.query.get(form.assigned_coaching_id.data)
-            if linked_assignment:
-                linked_assignment.status = 'in_progress'
 
         db.session.add(coaching)
         db.session.flush()
