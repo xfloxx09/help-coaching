@@ -3397,6 +3397,12 @@ def assigned_coachings():
         Team, TeamMember.team_id == Team.id
     ).filter(Team.project_id == project_id)
 
+    # Enforce role-based team scope (not just dropdown scope).
+    if visible_team_ids:
+        q = q.filter(TeamMember.team_id.in_(visible_team_ids))
+    else:
+        q = q.filter(false())
+
     if view_type == 'pl':
         q = q.filter(AssignedCoaching.project_leader_id == current_user.id)
     else:
@@ -3664,6 +3670,11 @@ def assigned_coachings_gesamtbericht():
     )
 
     leaders_scope = _assigned_coachings_scope_query(project_filter_id=project_filter)
+    if leaders_scope is not None:
+        if visible_team_ids:
+            leaders_scope = leaders_scope.filter(TeamMember.team_id.in_(visible_team_ids))
+        else:
+            leaders_scope = leaders_scope.filter(false())
     all_project_leaders = []
     if leaders_scope is not None:
         lid_rows = leaders_scope.with_entities(AssignedCoaching.project_leader_id).distinct().all()
@@ -3675,6 +3686,11 @@ def assigned_coachings_gesamtbericht():
             )
 
     snapshot = _assigned_coachings_scope_query(project_filter_id=project_filter)
+    if snapshot is not None:
+        if visible_team_ids:
+            snapshot = snapshot.filter(TeamMember.team_id.in_(visible_team_ids))
+        else:
+            snapshot = snapshot.filter(false())
     if snapshot is not None and project_leader_filter:
         snapshot = snapshot.filter(AssignedCoaching.project_leader_id == project_leader_filter)
     report_count_current = 0
@@ -3688,6 +3704,11 @@ def assigned_coachings_gesamtbericht():
         ).count()
 
     base_q = _assigned_coachings_scope_query(project_filter_id=project_filter)
+    if base_q is not None:
+        if visible_team_ids:
+            base_q = base_q.filter(TeamMember.team_id.in_(visible_team_ids))
+        else:
+            base_q = base_q.filter(false())
     if base_q is not None and project_leader_filter:
         base_q = base_q.filter(AssignedCoaching.project_leader_id == project_leader_filter)
     if base_q is None:
