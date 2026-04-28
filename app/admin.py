@@ -1031,29 +1031,41 @@ def edit_team_member(member_id):
             member.plt_id = form.plt_id.data
             member.ma_kennung = form.ma_kennung.data
             member.dag_id = form.dag_id.data
-            
-            if form.active.data:
-                if not is_active:
-                    if member.original_team_id:
-                        member.team_id = member.original_team_id
-                        member.original_team_id = None
-                        member.original_project_id = None
-                    else:
-                        member.team_id = form.team_id.data
-                else:
-                    member.team_id = form.team_id.data
+
+            sel_team = Team.query.get(form.team_id.data)
+            if not sel_team:
+                flash('Team nicht gefunden.', 'danger')
+                return redirect(url_for('admin.edit_team_member', member_id=member_id))
+            if sel_team.id == archiv_team.id or sel_team.name == ARCHIV_TEAM_NAME:
+                flash('Bitte ein Projektteam wählen (nicht ARCHIV).', 'danger')
+                return redirect(url_for('admin.edit_team_member', member_id=member_id))
+
+            target_is_live = sel_team.id != archiv_team.id and sel_team.name != ARCHIV_TEAM_NAME
+            # Teamwechsel zwischen zwei Live-Teams: immer auf Zielteam setzen (verhindert Archiv bei
+            # vergessenem „Aktiv“-Häkchen oder alter original_team_id-Logik).
+            moving_between_live_teams = (
+                is_active
+                and target_is_live
+                and form.team_id.data != member.team_id
+            )
+
+            if form.active.data or moving_between_live_teams:
+                member.team_id = form.team_id.data
+                member.original_team_id = None
+                member.original_project_id = None
             else:
-                if is_active:
-                    member.original_team_id = member.team_id
-                    member.original_project_id = member.team.project_id
-                    member.team_id = archiv_team.id
-            
+                # Inaktiv: Archiv; Wiederherstellungsziel immer aus Dropdown (nicht alter member.team_id
+                # bei gleichzeitigem Teamwechsel SCOZTH_32 → SCOZTH_31).
+                member.original_team_id = sel_team.id
+                member.original_project_id = sel_team.project_id
+                member.team_id = archiv_team.id
+
             db.session.commit()
             flash('Teammitglied erfolgreich aktualisiert!', 'success')
-            if form.active.data:
-                target_team_id = member.team_id
-            else:
+            if member.team_id == archiv_team.id:
                 target_team_id = member.original_team_id or form.team_id.data
+            else:
+                target_team_id = member.team_id
             return redirect(url_for('admin.edit_team', team_id=target_team_id))
         except Exception as e:
             db.session.rollback()
@@ -2327,12 +2339,15 @@ def _csv_mapping_from_request(form):
 
 def _csv_row_active_flag(row, mapping):
     active_col = mapping.get('active_status')
-    if active_col:
-        raw_active = row.get(active_col, '')
-        active_str = _csv_clean_cell_text(raw_active, collapse_spaces=True) if raw_active is not None else ''
-    else:
-        active_str = ''
-    return active_str in ('1', '1.0', '1,0')
+    if not active_col:
+        # Ohne zugeordnete Spalte nicht als „inaktiv“ werten — sonst landen alle Neuimporte im ARCHIV.
+        return True
+    raw_active = row.get(active_col, '')
+    active_str = _csv_clean_cell_text(raw_active, collapse_spaces=True) if raw_active is not None else ''
+    if not active_str:
+        return False
+    s = active_str.lower().replace(' ', '')
+    return s in ('1', '1.0', '1,0', 'true', 'ja', 'j', 'yes', 'y', 'wahr', 'x', 'aktiv')
 
 
 def _norm_csv_cmp(val):

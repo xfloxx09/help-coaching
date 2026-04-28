@@ -179,7 +179,7 @@
                      <tr>
                         <td>{{ team.id }}</td>
                         <td>{{ team.name }}</td>
-                        <td>{{ team.project_ref.name if team.project_ref else '-' }}</td>
+                        <td>{{ team.project.name if team.project else '-' }}</td>
                         <td>{% for leader in team.leaders %}{{ leader.username }}{% if not loop.last %}, {% endif %}{% else %}-{% endfor %}</td>
                         <td>{{ team.members|length }}</td>
                         <td>
