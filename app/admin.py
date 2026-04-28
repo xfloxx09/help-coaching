@@ -1,7 +1,7 @@
 # app/admin.py
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, session, jsonify, abort
 from flask_login import login_required, current_user
-from sqlalchemy import desc, or_, false
+from sqlalchemy import desc, or_, false, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 from app import db
@@ -949,6 +949,30 @@ def delete_team(team_id):
         return redirect(url_for('admin.panel'))
 
     try:
+        tid = team.id
+        # FK-Verweise lösen, die nicht über team.members laufen (Archiv-Ursprung, Coachings, …)
+        TeamMember.query.filter_by(original_team_id=tid).update(
+            {TeamMember.original_team_id: None, TeamMember.original_project_id: None},
+            synchronize_session=False,
+        )
+        db.session.execute(
+            update(workshop_participants)
+            .where(workshop_participants.c.original_team_id == tid)
+            .values(original_team_id=None)
+        )
+        User.query.filter_by(team_id_if_leader=tid).update(
+            {User.team_id_if_leader: None},
+            synchronize_session=False,
+        )
+        Coaching.query.filter_by(team_id=tid).update(
+            {Coaching.team_id: None},
+            synchronize_session=False,
+        )
+        PlannedCoaching.query.filter_by(team_id=tid).update(
+            {PlannedCoaching.team_id: None},
+            synchronize_session=False,
+        )
+
         team.leaders = []
         db.session.delete(team)
         db.session.commit()
