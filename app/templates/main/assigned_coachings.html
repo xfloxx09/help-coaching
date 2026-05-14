@@ -278,7 +278,7 @@
         <hr class="my-4">
     {% endif %}
 
-    <!-- Assignment list (the same for both tabs, the route filters accordingly) -->
+    <!-- Assignment list (route filters by status: current / attention / completed) -->
     {% include 'main/_assignment_list.html' with context %}
 </div>
 {% endblock %}

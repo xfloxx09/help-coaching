@@ -1,4 +1,4 @@
-{# Zwei Tabs: Aktuelle (Projekt) + Abgeschlossene & Archiv (bzw. Bereichstabelle mit Report-Recht). #}
+{# Tabs: Aktuelle (Projekt) + Ausstehend/Überfällig + Abgeschlossene & Archiv (bzw. Bereichstabelle mit Report-Recht). #}
 {# Kontext: ac_is_gesamt_page, ac_project_id, ac_tab_active, gesamt_url_project, #}
 {# team_filter, coach_filter, member_filter, search_term, sort_by, sort_dir #}
 {% set ac_report = has_perm('view_assigned_coaching_report') %}
@@ -13,6 +13,14 @@
            href="{{ url_for('main.assigned_coachings', project=ac_project_id, status='current', team=team_filter, coach=coach_filter, member=member_filter, search=search_term, sort_by=sort_by, sort_dir=sort_dir) }}">Aktuelle Aufträge</a>
         {% else %}
         <span class="nav-link disabled">Aktuelle Aufträge</span>
+        {% endif %}
+    </li>
+    <li class="nav-item">
+        {% if ac_project_id %}
+        <a class="nav-link {% if not ac_is_gesamt_page and ac_tab_active == 'attention' %}active{% endif %}"
+           href="{{ url_for('main.assigned_coachings', project=ac_project_id, status='attention', team=team_filter, coach=coach_filter, member=member_filter, search=search_term, sort_by=sort_by, sort_dir=sort_dir) }}">Ausstehend &amp; Überfällig</a>
+        {% else %}
+        <span class="nav-link disabled">Ausstehend &amp; Überfällig</span>
         {% endif %}
     </li>
     <li class="nav-item">

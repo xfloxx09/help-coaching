@@ -3379,7 +3379,7 @@ def assigned_coachings():
     view_type = 'pl' if can_assign else 'coach'
 
     tab_active = request.args.get('status', 'current')
-    if tab_active not in ('current', 'completed'):
+    if tab_active not in ('current', 'completed', 'attention'):
         tab_active = 'current'
 
     page = request.args.get('page', 1, type=int)
@@ -3456,10 +3456,22 @@ def assigned_coachings():
     else:
         q = q.filter(AssignedCoaching.coach_id == current_user.id)
 
+    _now_cmp = datetime.utcnow()
     if tab_active == 'completed':
         q = q.filter(AssignedCoaching.status.in_(['completed', 'expired', 'rejected', 'cancelled']))
+    elif tab_active == 'attention':
+        # Ausstehend (noch nicht angenommen) + überfällige laufende Aufträge
+        overdue_open = and_(
+            AssignedCoaching.status.in_(['accepted', 'in_progress']),
+            AssignedCoaching.deadline < _now_cmp,
+        )
+        q = q.filter(or_(AssignedCoaching.status == 'pending', overdue_open))
     else:
-        q = q.filter(AssignedCoaching.status.in_(['pending', 'accepted', 'in_progress']))
+        # Aktuelle Aufträge: angenommen / in Arbeit, Deadline noch nicht überschritten
+        q = q.filter(
+            AssignedCoaching.status.in_(['accepted', 'in_progress']),
+            AssignedCoaching.deadline >= _now_cmp,
+        )
 
     if team_filter:
         q = q.filter(TeamMember.team_id == team_filter)
@@ -3579,7 +3591,7 @@ def create_assigned_coaching():
         db.session.add(assignment)
         db.session.commit()
         flash('Coaching-Aufgabe zugewiesen.', 'success')
-        return redirect(url_for('main.assigned_coachings', project=project_id))
+        return redirect(url_for('main.assigned_coachings', project=project_id, status='attention'))
 
     return render_template(
         'main/create_assigned_coaching.html',
@@ -4009,7 +4021,7 @@ def reject_assigned_coaching(assignment_id):
         reason = (request.form.get('rejection_reason') or '').strip()
         if len(reason) < 3:
             flash('Bitte geben Sie einen Ablehnungsgrund an (mindestens 3 Zeichen).', 'warning')
-            return redirect(url_for('main.assigned_coachings', project=list_pid))
+            return redirect(url_for('main.assigned_coachings', project=list_pid, status='attention'))
         assignment.status = 'rejected'
         assignment.rejection_reason = reason[:2000]
         db.session.commit()
