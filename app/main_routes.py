@@ -3633,9 +3633,11 @@ def get_member_current_score():
 @permission_required('view_assigned_coaching_report')
 def assigned_coachings_gesamtbericht():
     _apply_query_project_to_session()
-    tab_active = request.args.get('status', 'all')
-    if tab_active not in ('all', 'current', 'completed'):
-        tab_active = 'all'
+    raw_status = (request.args.get('status') or '').strip()
+    if raw_status in ('all', 'current', 'completed', 'pending'):
+        tab_active = raw_status
+    else:
+        tab_active = 'current'
     page = request.args.get('page', 1, type=int)
     team_filter = request.args.get('team', type=int)
     coach_filter = request.args.get('coach', type=int)
@@ -3742,11 +3744,13 @@ def assigned_coachings_gesamtbericht():
     if snapshot is not None and project_leader_filter:
         snapshot = snapshot.filter(AssignedCoaching.project_leader_id == project_leader_filter)
     report_count_current = 0
+    report_count_pending = 0
     report_count_completed = 0
     if snapshot is not None:
         report_count_current = snapshot.filter(
             AssignedCoaching.status.in_(['pending', 'accepted', 'in_progress'])
         ).count()
+        report_count_pending = snapshot.filter(AssignedCoaching.status == 'pending').count()
         report_count_completed = snapshot.filter(
             AssignedCoaching.status.in_(['completed', 'expired', 'rejected', 'cancelled'])
         ).count()
@@ -3782,6 +3786,7 @@ def assigned_coachings_gesamtbericht():
             all_coaches=all_coaches,
             all_members=all_members,
             report_count_current=0,
+            report_count_pending=0,
             report_count_completed=0,
             assigned_tabs_project_id=assigned_tabs_project_id,
             project_bar_endpoint='main.assigned_coachings_gesamtbericht',
@@ -3801,6 +3806,8 @@ def assigned_coachings_gesamtbericht():
         q = q.filter(AssignedCoaching.status.in_(['completed', 'expired', 'rejected', 'cancelled']))
     elif tab_active == 'current':
         q = q.filter(AssignedCoaching.status.in_(['pending', 'accepted', 'in_progress']))
+    elif tab_active == 'pending':
+        q = q.filter(AssignedCoaching.status == 'pending')
     # tab_active == 'all': alle Status
 
     if team_filter:
@@ -3857,6 +3864,7 @@ def assigned_coachings_gesamtbericht():
         all_coaches=all_coaches,
         all_members=all_members,
         report_count_current=report_count_current,
+        report_count_pending=report_count_pending,
         report_count_completed=report_count_completed,
         assigned_tabs_project_id=assigned_tabs_project_id,
         project_bar_endpoint='main.assigned_coachings_gesamtbericht',
