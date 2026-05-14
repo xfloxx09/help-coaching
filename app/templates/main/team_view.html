@@ -275,7 +275,7 @@
                              
                              <div class="text-center details-link-container mt-auto d-flex justify-content-around align-items-center">
                                  {# KORRIGIERTER "Coachings" BUTTON #}
-                                 <a href="{{ url_for('main.coaching_dashboard', member_id=member_stat.id) }}" class="btn btn-sm telekom-button-filled-magenta mr-1">
+                                 <a href="{{ url_for('main.coaching_dashboard', member_id=member_stat.id, team=team.id, project=team.project_id) }}" class="btn btn-sm telekom-button-filled-magenta mr-1">
                                      Coachings
                                  </a>
                                  {# Trend Button #}

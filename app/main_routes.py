@@ -924,6 +924,41 @@ def _dashboard_my_team_ids():
     return out
 
 
+def _coaching_dashboard_resolve_member_filter(
+    member_id,
+    accessible,
+    dashboard_project_id,
+    team_arg,
+    sees_all_teams,
+    my_dash_team_ids,
+):
+    """
+    Teammitglied aus ?member_id= — nur wenn sichtbar im Dashboard-Scope (Projekt, Team, Rechte, kein ARCHIV).
+    """
+    if not member_id:
+        return None
+    tm = TeamMember.query.options(joinedload(TeamMember.team)).get(member_id)
+    if not tm or not tm.team:
+        return None
+    team = tm.team
+    if team.name == ARCHIV_TEAM_NAME or not team.active_for_coaching:
+        return None
+    if accessible is not None:
+        if not accessible or team.project_id not in accessible:
+            return None
+    if dashboard_project_id == -1:
+        return None
+    if dashboard_project_id is not None and team.project_id != dashboard_project_id:
+        return None
+    if team_arg != 'all' and team_arg.isdigit():
+        if int(team_arg) != team.id:
+            return None
+    if not sees_all_teams:
+        if not my_dash_team_ids or team.id not in my_dash_team_ids:
+            return None
+    return tm
+
+
 def _coaching_dashboard_query_joined(base_query):
     """Join path required whenever filters reference TeamMember, Team, or coach User."""
     return base_query.join(
@@ -1287,6 +1322,22 @@ def coaching_dashboard():
         ):
             scope_filters.append(Team.id == tid)
 
+    member_arg = request.args.get('member_id', type=int)
+    dashboard_member = None
+    if member_arg:
+        dashboard_member = _coaching_dashboard_resolve_member_filter(
+            member_arg,
+            accessible,
+            dashboard_project_id,
+            team_arg,
+            sees_all_teams,
+            my_dash_team_ids,
+        )
+        if not dashboard_member:
+            flash('Mitarbeiter-Filter ungültig oder keine Berechtigung.', 'warning')
+        else:
+            scope_filters.append(Coaching.team_member_id == dashboard_member.id)
+
     archiv_team = get_or_create_archiv_team()
     # Graphs must hide every ARCHIV team row, not only the default ARCHIV team id.
     graph_filters = scope_filters + [Team.name != ARCHIV_TEAM_NAME]
@@ -1463,6 +1514,25 @@ def coaching_dashboard():
 
     cal_day_label = cal_date_active.strftime('%d.%m.%Y') if cal_date_active else None
 
+    coaching_dashboard_persist_query = {'period': period_arg, 'team': team_arg}
+    if search_arg:
+        coaching_dashboard_persist_query['search'] = search_arg
+    if cal_date_active and cal_date_str:
+        coaching_dashboard_persist_query['cal_date'] = cal_date_str
+    if dashboard_member:
+        coaching_dashboard_persist_query['member_id'] = dashboard_member.id
+    if coaching_dashboard_url_project is not None:
+        coaching_dashboard_persist_query['project'] = coaching_dashboard_url_project
+
+    coaching_dashboard_clear_member_href = url_for(
+        'main.coaching_dashboard',
+        **{k: v for k, v in coaching_dashboard_persist_query.items() if k != 'member_id'},
+    )
+    coaching_dashboard_search_reset_href = url_for(
+        'main.coaching_dashboard',
+        **{k: v for k, v in coaching_dashboard_persist_query.items() if k != 'search'},
+    )
+
     return render_template('main/index.html',
                            title='Coaching Dashboard',
                            coachings_paginated=coachings_paginated,
@@ -1492,6 +1562,11 @@ def coaching_dashboard():
                            review_redirect_next=review_redirect_next,
                            cal_date_filter=cal_date_str if cal_date_active else None,
                            cal_day_label=cal_day_label,
+                           coaching_dashboard_persist_query=coaching_dashboard_persist_query,
+                           coaching_dashboard_clear_member_href=coaching_dashboard_clear_member_href,
+                           coaching_dashboard_search_reset_href=coaching_dashboard_search_reset_href,
+                           dashboard_member_id=dashboard_member.id if dashboard_member else None,
+                           dashboard_member_name=dashboard_member.name if dashboard_member else None,
                            config=current_app.config)
 
 
