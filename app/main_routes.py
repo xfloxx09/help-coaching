@@ -2600,7 +2600,55 @@ def workshop_dashboard():
     page = request.args.get('page', 1, type=int)
     period_arg = request.args.get('period', 'all')
     search_arg = request.args.get('search', default="", type=str).strip()
-    project_filter = get_visible_project_id()
+
+    accessible = get_accessible_project_ids()
+    project_raw = (request.args.get('project') or '').strip()
+    project_filter_int = None
+    project_scope_all = False
+
+    if project_raw.lower() == 'all':
+        project_scope_all = True
+    elif project_raw.isdigit():
+        project_filter_int = int(project_raw)
+    elif accessible is not None and len(accessible) > 1 and not project_raw:
+        project_scope_all = True
+
+    ws_project_filters = []
+    if accessible is None:
+        if project_filter_int is not None:
+            ws_project_filters.append(Workshop.project_id == project_filter_int)
+    elif not accessible:
+        ws_project_filters.append(Workshop.project_id == -1)
+    else:
+        if project_filter_int is not None and project_filter_int not in accessible:
+            project_filter_int = None
+        if project_scope_all:
+            ws_project_filters.append(Workshop.project_id.in_(accessible))
+        elif project_filter_int is not None:
+            ws_project_filters.append(Workshop.project_id == project_filter_int)
+        elif len(accessible) == 1:
+            ws_project_filters.append(Workshop.project_id == accessible[0])
+        else:
+            vid = get_visible_project_id()
+            if vid and vid in accessible:
+                ws_project_filters.append(Workshop.project_id == vid)
+            else:
+                ws_project_filters.append(Workshop.project_id == accessible[0])
+
+    if accessible is None:
+        dashboard_project_id = project_filter_int
+    elif not accessible:
+        dashboard_project_id = -1
+    else:
+        if project_scope_all:
+            dashboard_project_id = None
+        elif project_filter_int is not None:
+            dashboard_project_id = project_filter_int
+        elif len(accessible) == 1:
+            dashboard_project_id = accessible[0]
+        else:
+            vid = get_visible_project_id()
+            dashboard_project_id = vid if (vid and vid in accessible) else accessible[0]
 
     cal_date_str = (request.args.get('cal_date') or '').strip()
     cal_date_active = None
@@ -2611,10 +2659,7 @@ def workshop_dashboard():
             cal_date_active = None
             cal_date_str = ''
 
-    # Build reusable filter conditions
-    ws_filters = []
-    if project_filter:
-        ws_filters.append(Workshop.project_id == project_filter)
+    ws_filters = list(ws_project_filters)
     if cal_date_active:
         start_date, end_date = athens_calendar_day_utc_naive_bounds(cal_date_active)
     else:
@@ -2639,7 +2684,6 @@ def workshop_dashboard():
     workshops_query = workshops_query.filter(*ws_filters)
     workshops_paginated = workshops_query.order_by(desc(Workshop.workshop_date)).paginate(page=page, per_page=15, error_out=False)
 
-    # Compute stats for the template
     total_workshops = workshops_query.count()
     total_time = db.session.query(
         db.func.coalesce(db.func.sum(Workshop.time_spent), 0)
@@ -2649,7 +2693,6 @@ def workshop_dashboard():
     ).filter(*ws_filters).scalar()
     avg_rating = round(avg_rating_val, 1) if avg_rating_val else 0
 
-    # Month options for filter dropdown
     now = datetime.now(timezone.utc)
     current_year = now.year
     previous_year = current_year - 1
@@ -2658,6 +2701,44 @@ def workshop_dashboard():
         month_options.append({'value': f"{previous_year}-{m:02d}", 'text': f"{get_month_name_german(m)} {previous_year}"})
     for m in range(now.month, 0, -1):
         month_options.append({'value': f"{current_year}-{m:02d}", 'text': f"{get_month_name_german(m)} {current_year}"})
+
+    if accessible is None:
+        all_projects = Project.query.order_by(Project.name).all()
+    elif len(accessible) > 1:
+        all_projects = Project.query.filter(Project.id.in_(accessible)).order_by(Project.name).all()
+    else:
+        all_projects = []
+
+    show_global_all_projects_option = accessible is None or (accessible is not None and len(accessible) > 1)
+    workshop_dashboard_project_all_is_blank = accessible is None
+
+    if accessible is None:
+        current_project_filter = project_filter_int
+    elif not accessible:
+        current_project_filter = None
+    else:
+        if project_scope_all:
+            current_project_filter = 'all'
+        elif project_filter_int is not None:
+            current_project_filter = project_filter_int
+        elif len(accessible) == 1:
+            current_project_filter = accessible[0]
+        else:
+            current_project_filter = dashboard_project_id
+
+    workshop_dashboard_url_project = None
+    if all_projects:
+        if accessible is None:
+            workshop_dashboard_url_project = project_filter_int
+        elif not accessible:
+            workshop_dashboard_url_project = None
+        else:
+            if project_scope_all:
+                workshop_dashboard_url_project = 'all'
+            elif project_filter_int is not None:
+                workshop_dashboard_url_project = project_filter_int
+            else:
+                workshop_dashboard_url_project = dashboard_project_id
 
     cal_day_label = ''
     if cal_date_active:
@@ -2674,6 +2755,11 @@ def workshop_dashboard():
                            month_options=month_options,
                            cal_date_filter=cal_date_str if cal_date_active else None,
                            cal_day_label=cal_day_label,
+                           all_projects=all_projects,
+                           show_global_all_projects_option=show_global_all_projects_option,
+                           workshop_dashboard_project_all_is_blank=workshop_dashboard_project_all_is_blank,
+                           current_project_filter=current_project_filter,
+                           workshop_dashboard_url_project=workshop_dashboard_url_project,
                            config=current_app.config,
                            db=db,
                            workshop_participants=workshop_participants)
