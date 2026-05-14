@@ -163,8 +163,8 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if assignment.status == 'completed' %}
-                        <a href="{{ url_for('main.assigned_coaching_report', assignment_id=assignment.id) }}" class="btn btn-sm gesamt-btn-report">Bericht</a>
+                        {% if assignment.status in ('completed', 'accepted', 'in_progress') %}
+                        <a href="{{ url_for('main.assigned_coaching_report', assignment_id=assignment.id) }}" class="btn btn-sm gesamt-btn-report" title="{% if assignment.status == 'completed' %}Abschlussbericht{% else %}Zwischenbericht (Stand laufender Aufgabe){% endif %}">Bericht</a>
                         {% elif assignment.status == 'rejected' and assignment.rejection_reason %}
                         <a href="{{ url_for('main.assigned_coaching_rejection_bericht', assignment_id=assignment.id) }}" class="btn btn-sm gesamt-btn-report">Bericht</a>
                         {% else %}

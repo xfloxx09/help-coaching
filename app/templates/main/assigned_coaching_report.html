@@ -13,6 +13,9 @@
 {% block content %}
 <div class="container">
     <h2>Bericht zu Coaching-Aufgabe #{{ report.assignment.id }}</h2>
+    {% if report.status != 'completed' %}
+    <p class="alert alert-info py-2 small mb-3">Zwischenstand: Die Aufgabe ist noch in Arbeit — unten erscheinen alle bereits erfassten Coachings zu dieser Zuweisung.</p>
+    {% endif %}
     <div class="card mb-4">
         <div class="card-header telekom-bg-magenta text-white">
             Basis-Informationen

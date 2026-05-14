@@ -110,8 +110,8 @@
                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Diese Aufgabe wirklich stornieren?');">Stornieren</button>
                                     </form>
                                 {% endif %}
-                                {% if view_type == 'pl' and assignment.status == 'completed' %}
-                                    <a href="{{ url_for('main.assigned_coaching_report', assignment_id=assignment.id) }}" class="btn btn-sm btn-info">Bericht</a>
+                                {% if view_type == 'pl' and assignment.status in ('completed', 'accepted', 'in_progress') %}
+                                    <a href="{{ url_for('main.assigned_coaching_report', assignment_id=assignment.id) }}" class="btn btn-sm btn-info" title="{% if assignment.status == 'completed' %}Abschlussbericht{% else %}Zwischenbericht{% endif %}">Bericht</a>
                                 {% endif %}
                             </td>
                         </tr>
