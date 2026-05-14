@@ -148,29 +148,8 @@
 <div class="container">
     <h2 class="mb-4">{{ title }}</h2>
 
-    {% if not is_edit_mode|default(false) and show_coaching_project_picker|default(false) %}
-    <form method="get" action="{{ url_for('main.add_coaching') }}" class="form-section form-inline align-items-end mb-3 flex-wrap">
-        {% if request.args.get('assigned_id') %}
-        <input type="hidden" name="assigned_id" value="{{ request.args.get('assigned_id') }}">
-        {% endif %}
-        {% if request.args.get('planned_id') %}
-        <input type="hidden" name="planned_id" value="{{ request.args.get('planned_id') }}">
-        {% endif %}
-        <div class="form-group mr-3 mb-2 mb-md-0">
-            <label for="pick_coaching_project" class="mr-2 font-weight-bold">Projekt</label>
-            <select name="project" id="pick_coaching_project" class="form-control" onchange="this.form.submit()">
-                {% for p in coaching_projects %}
-                <option value="{{ p.id }}" {% if p.id == selected_coaching_project_id %}selected{% endif %}>{{ p.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <small class="text-muted">Die Teammitglied-Auswahl gilt für dieses Projekt.</small>
-    </form>
-    {% endif %}
-
-    {% if not is_edit_mode|default(false) and show_team_member_team_filter|default(false) %}
-    <form method="get" action="{{ url_for('main.add_coaching') }}" class="form-section form-inline align-items-end mb-3 flex-wrap">
-        <input type="hidden" name="project" value="{{ selected_coaching_project_id }}">
+    {% if not is_edit_mode|default(false) and (show_coaching_project_picker|default(false) or show_team_member_team_filter|default(false)) %}
+    <form method="get" action="{{ url_for('main.add_coaching') }}" class="form-section mb-3">
         {% if request.args.get('assigned_id') %}
         <input type="hidden" name="assigned_id" value="{{ request.args.get('assigned_id') }}">
         {% endif %}
@@ -180,16 +159,40 @@
         {% if request.args.get('suggested_member_id') %}
         <input type="hidden" name="suggested_member_id" value="{{ request.args.get('suggested_member_id') }}">
         {% endif %}
-        <div class="form-group mr-3 mb-2 mb-md-0">
-            <label for="pick_member_team_filter" class="mr-2 font-weight-bold">Team</label>
-            <select name="team" id="pick_member_team_filter" class="form-control custom-select" onchange="this.form.submit()">
-                <option value="">Alle Teams</option>
-                {% for t in add_coaching_filter_teams %}
-                <option value="{{ t.id }}" {% if add_coaching_selected_team_id == t.id %}selected{% endif %}>{{ t.name }}</option>
-                {% endfor %}
-            </select>
+        <div class="d-flex flex-wrap align-items-end">
+            {% if show_coaching_project_picker|default(false) %}
+            <div class="form-group mb-2 mb-md-0 mr-md-4 pr-md-3" style="min-width: 12rem;">
+                <label for="pick_coaching_project" class="d-block font-weight-bold mb-1">Projekt</label>
+                <select name="project" id="pick_coaching_project" class="form-control custom-select" onchange="this.form.submit()">
+                    {% for p in coaching_projects %}
+                    <option value="{{ p.id }}" {% if p.id == selected_coaching_project_id %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% elif show_team_member_team_filter|default(false) %}
+            <input type="hidden" name="project" value="{{ selected_coaching_project_id }}">
+            {% endif %}
+            {% if show_team_member_team_filter|default(false) %}
+            <div class="form-group mb-0" style="min-width: 12rem;">
+                <label for="pick_member_team_filter" class="d-block font-weight-bold mb-1">Team</label>
+                <select name="team" id="pick_member_team_filter" class="form-control custom-select" onchange="this.form.submit()">
+                    <option value="">Alle Teams</option>
+                    {% for t in add_coaching_filter_teams %}
+                    <option value="{{ t.id }}" {% if add_coaching_selected_team_id == t.id %}selected{% endif %}>{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
         </div>
-        <small class="text-muted">Einschränken, welche Teammitglieder in der Liste erscheinen.</small>
+        <small class="text-muted d-block mt-2 mb-0">
+            {% if show_coaching_project_picker|default(false) and show_team_member_team_filter|default(false) %}
+            Projekt und Team bestimmen, welche Teammitglieder zur Auswahl stehen.
+            {% elif show_coaching_project_picker|default(false) %}
+            Die Teammitglied-Auswahl gilt für dieses Projekt.
+            {% else %}
+            Einschränken, welche Teammitglieder in der Liste erscheinen.
+            {% endif %}
+        </small>
     </form>
     {% endif %}
 
