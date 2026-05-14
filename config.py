@@ -56,6 +56,14 @@ def _resolve_database_uri():
     return _database_uri_from_pg_parts()
 
 
+def _env_bool_with_default(name, default):
+    """If env unset or empty, return default; otherwise true for 1/true/yes/on (case-insensitive)."""
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == '':
+        return default
+    return str(raw).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
 class Config:
     print("DEBUG [config.py]: Innerhalb der Config-Klasse, VOR dem Lesen von Umgebungsvariablen.") # DEBUG
 
@@ -83,4 +91,6 @@ class Config:
     print(f"DEBUG [config.py]: Finale SQLALCHEMY_DATABASE_URI, die gesetzt wird: '{SQLALCHEMY_DATABASE_URI}'") # DEBUG
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     PERFORMANCE_BENCHMARK = 80.0
+    # Team pre-filter on /add-coaching. Set ENABLE_ADD_COACHING_TEAM_FILTER=false to disable without git revert.
+    ENABLE_ADD_COACHING_TEAM_FILTER = _env_bool_with_default('ENABLE_ADD_COACHING_TEAM_FILTER', True)
 print("DEBUG [config.py]: config.py wurde vollständig geladen.") # DEBUG

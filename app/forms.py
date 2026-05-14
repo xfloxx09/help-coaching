@@ -226,14 +226,19 @@ class CoachingForm(FlaskForm):
         self.current_user_role = current_user_role
         self.current_user_team_ids = current_user_team_ids if current_user_team_ids is not None else []
 
-    def update_team_member_choices(self, exclude_archiv=False, project_id=None, include_member_ids=None):
-        generated_choices = []
+    def _team_member_pick_query(
+        self,
+        exclude_archiv=False,
+        project_id=None,
+        include_member_ids=None,
+        team_filter_id=None,
+    ):
+        """Base query for add/edit coaching team-member dropdown (same scoping as before)."""
         query = TeamMember.query.join(Team, TeamMember.team_id == Team.id)
 
         if project_id:
             query = query.filter(Team.project_id == project_id)
 
-        # Restrict to own team if the coach has the 'coach_own_team_only' permission
         if current_user.is_authenticated and current_user.has_permission('coach_own_team_only'):
             coach_team_member = current_user.team_members[0] if current_user.team_members else None
             if coach_team_member:
@@ -241,7 +246,6 @@ class CoachingForm(FlaskForm):
             else:
                 query = query.filter(false())
         else:
-            # Original behaviour
             if self.current_user_role == ROLE_TEAMLEITER and self.current_user_team_ids:
                 query = query.filter(TeamMember.team_id.in_(self.current_user_team_ids))
             elif self.current_user_role not in [ROLE_ADMIN, ROLE_BETRIEBSLEITER]:
@@ -255,6 +259,38 @@ class CoachingForm(FlaskForm):
         if include_ids:
             coaching_ok = or_(coaching_ok, TeamMember.id.in_(include_ids))
         query = query.filter(coaching_ok)
+
+        if team_filter_id:
+            query = query.filter(TeamMember.team_id == team_filter_id)
+        return query
+
+    def teams_for_member_pick_filter(self, exclude_archiv=False, project_id=None, include_member_ids=None):
+        """Distinct teams that appear in the member picker (for optional team pre-filter on add-coaching)."""
+        q = self._team_member_pick_query(
+            exclude_archiv=exclude_archiv,
+            project_id=project_id,
+            include_member_ids=include_member_ids,
+            team_filter_id=None,
+        )
+        team_ids = [row[0] for row in q.with_entities(TeamMember.team_id).distinct().all() if row[0]]
+        if not team_ids:
+            return []
+        return Team.query.filter(Team.id.in_(team_ids)).order_by(Team.name).all()
+
+    def update_team_member_choices(
+        self,
+        exclude_archiv=False,
+        project_id=None,
+        include_member_ids=None,
+        team_filter_id=None,
+    ):
+        generated_choices = []
+        query = self._team_member_pick_query(
+            exclude_archiv=exclude_archiv,
+            project_id=project_id,
+            include_member_ids=include_member_ids,
+            team_filter_id=team_filter_id,
+        )
 
         members = query.order_by(TeamMember.name).all()
         for m in members:

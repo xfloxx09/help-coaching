@@ -2143,10 +2143,31 @@ def add_coaching():
             .all()
         )
     ]
+    filter_teams = form.teams_for_member_pick_filter(
+        exclude_archiv=True,
+        project_id=project_id,
+        include_member_ids=assignment_member_ids,
+    )
+    allowed_team_ids = {t.id for t in filter_teams}
+    team_filter_id = None
+    team_filter_feature = current_app.config.get('ENABLE_ADD_COACHING_TEAM_FILTER', True)
+    if team_filter_feature:
+        if request.method == 'POST':
+            raw_tf = (request.form.get('team_filter') or '').strip()
+            if raw_tf.isdigit():
+                cand = int(raw_tf)
+                if cand in allowed_team_ids:
+                    team_filter_id = cand
+        else:
+            arg_team = request.args.get('team', type=int)
+            if arg_team and arg_team in allowed_team_ids:
+                team_filter_id = arg_team
+
     form.update_team_member_choices(
         exclude_archiv=True,
         project_id=project_id,
         include_member_ids=assignment_member_ids,
+        team_filter_id=team_filter_id,
     )
     form.apply_bogen(project_id)
     leitfaden_items = leitfaden_items_for_project(project_id)
@@ -2185,6 +2206,9 @@ def add_coaching():
         if not team_member:
             flash('Teammitglied nicht gefunden.', 'danger')
             return redirect(url_for('main.add_coaching', project=project_id))
+        if team_filter_id and team_member.team_id != team_filter_id:
+            flash('Ungültige Kombination aus Teamfilter und Teammitglied.', 'danger')
+            return redirect(url_for('main.add_coaching', project=project_id, team=team_filter_id))
         if not team_member.team or team_member.team.project_id != project_id:
             flash('Teammitglied passt nicht zum gewählten Projekt.', 'danger')
             return redirect(url_for('main.add_coaching', project=project_id))
@@ -2277,6 +2301,24 @@ def add_coaching():
         else:
             flash('Ungültige oder nicht verfügbare Aufgabe.', 'danger')
 
+    show_team_member_team_filter = team_filter_feature and len(filter_teams) > 1
+    if team_filter_feature and show_team_member_team_filter and form.team_member_id.data:
+        try:
+            valid_member_choice_ids = {int(c[0]) for c in (form.team_member_id.choices or [])}
+        except (TypeError, ValueError):
+            valid_member_choice_ids = set()
+        sel_mid = form.team_member_id.data
+        if sel_mid and int(sel_mid) not in valid_member_choice_ids:
+            tm_sel = TeamMember.query.get(sel_mid)
+            if tm_sel and tm_sel.team_id in allowed_team_ids:
+                team_filter_id = tm_sel.team_id
+                form.update_team_member_choices(
+                    exclude_archiv=True,
+                    project_id=project_id,
+                    include_member_ids=assignment_member_ids,
+                    team_filter_id=team_filter_id,
+                )
+
     return render_template(
         'main/add_coaching.html',
         title='Coaching erfassen',
@@ -2286,6 +2328,9 @@ def add_coaching():
         coaching_projects=coaching_projects,
         selected_coaching_project_id=project_id,
         show_coaching_project_picker=show_coaching_project_picker,
+        add_coaching_filter_teams=filter_teams,
+        add_coaching_selected_team_id=team_filter_id,
+        show_team_member_team_filter=show_team_member_team_filter,
         bogen_layout=bogen_layout,
         config=current_app.config,
         initial_fulfill_planned_id=initial_fulfill_planned_id,
@@ -2429,6 +2474,9 @@ def edit_coaching(coaching_id):
         coaching=coaching,
         leitfaden_items=leitfaden_items,
         selected_leitfaden_values=selected_leitfaden_values,
+        add_coaching_filter_teams=[],
+        add_coaching_selected_team_id=None,
+        show_team_member_team_filter=False,
         bogen_layout=bogen_layout,
         config=current_app.config,
         initial_fulfill_planned_id=None,
