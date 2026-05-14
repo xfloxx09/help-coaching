@@ -206,7 +206,10 @@ class CoachingForm(FlaskForm):
         choices=[]
     )
     coaching_style = SelectField('Coaching Stil', choices=[('Side-by-Side', 'Side-by-Side'), ('TCAP', 'TCAP')], validators=[DataRequired("Coaching-Stil ist erforderlich.")])
-    tcap_id = StringField('T-CAP ID (falls TCAP gewählt)')
+    tcap_id = StringField(
+        'T-CAP ID (Pflichtfeld bei Stil „TCAP“)',
+        validators=[Optional(), Length(max=100, message='T-CAP ID darf höchstens 100 Zeichen haben.')],
+    )
     coaching_subject = SelectField('Coaching Thema', choices=COACHING_SUBJECT_CHOICES, validators=[DataRequired("Coaching-Thema ist erforderlich.")])
     leitfaden_begruessung = SelectField('Begrüßung', choices=LEITFADEN_CHOICES, default='k.A.', validate_choice=False)
     leitfaden_legitimation = SelectField('Legitimation', choices=LEITFADEN_CHOICES, default='k.A.', validate_choice=False)
@@ -342,6 +345,12 @@ class CoachingForm(FlaskForm):
         if cur_sub and not any(cur_sub == x[0] for x in subj):
             subj.append((cur_sub, cur_sub))
         self.coaching_subject.choices = subj
+
+    def validate_tcap_id(self, field):
+        style = (self.coaching_style.data or '').strip()
+        if style == 'TCAP':
+            if not (field.data or '').strip():
+                raise ValidationError('T-CAP ID ist bei Coaching-Stil „TCAP“ erforderlich.')
 
 
 class PasswordChangeForm(FlaskForm):
