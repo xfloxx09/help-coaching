@@ -208,7 +208,7 @@ class CoachingForm(FlaskForm):
     coaching_style = SelectField('Coaching Stil', choices=[('Side-by-Side', 'Side-by-Side'), ('TCAP', 'TCAP')], validators=[DataRequired("Coaching-Stil ist erforderlich.")])
     tcap_id = StringField(
         'T-CAP ID (Pflichtfeld bei Stil „TCAP“)',
-        validators=[Optional(), Length(max=100, message='T-CAP ID darf höchstens 100 Zeichen haben.')],
+        validators=[Length(max=100, message='T-CAP ID darf höchstens 100 Zeichen haben.')],
     )
     coaching_subject = SelectField('Coaching Thema', choices=COACHING_SUBJECT_CHOICES, validators=[DataRequired("Coaching-Thema ist erforderlich.")])
     leitfaden_begruessung = SelectField('Begrüßung', choices=LEITFADEN_CHOICES, default='k.A.', validate_choice=False)
