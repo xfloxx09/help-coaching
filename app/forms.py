@@ -298,12 +298,20 @@ class CoachingForm(FlaskForm):
         self.team_member_id.choices = generated_choices
 
     def update_assignment_choices(self, team_member_id, coach_id):
-        from app.models import AssignedCoaching
-        assignments = AssignedCoaching.query.filter(
-            AssignedCoaching.team_member_id == team_member_id,
-            AssignedCoaching.coach_id == coach_id,
-            AssignedCoaching.status.in_(['pending', 'accepted', 'in_progress'])
-        ).all()
+        from datetime import datetime
+        assignments = (
+            AssignedCoaching.query.filter(
+                AssignedCoaching.team_member_id == team_member_id,
+                AssignedCoaching.coach_id == coach_id,
+                AssignedCoaching.status.in_(['pending', 'accepted', 'in_progress']),
+                or_(
+                    AssignedCoaching.deadline.is_(None),
+                    AssignedCoaching.deadline >= datetime.utcnow(),
+                ),
+            )
+            .order_by(AssignedCoaching.deadline)
+            .all()
+        )
         self.assigned_coaching_id.choices = [(0, '--- Keine zugewiesene Aufgabe ---')] + [(a.id, f"Aufgabe #{a.id} (bis {a.deadline.strftime('%d.%m.%y')}) – Fortschritt: {a.progress}%") for a in assignments]
 
     def apply_bogen(self, project_id, coaching=None):

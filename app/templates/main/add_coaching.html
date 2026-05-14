@@ -419,6 +419,7 @@
 window.__coachingEditAssignedId = {% if is_edit_mode and coaching and coaching.assigned_coaching_id %}{{ coaching.assigned_coaching_id }}{% else %}null{% endif %};
 window.__coachingEditMemberId = {% if is_edit_mode and coaching %}{{ coaching.team_member_id }}{% else %}null{% endif %};
 window.__initialFulfillPlannedId = {% if initial_fulfill_planned_id %}{{ initial_fulfill_planned_id }}{% else %}null{% endif %};
+window.__coachingInitialMemberForAssigned = {% if form.team_member_id.data %}{{ form.team_member_id.data }}{% else %}null{% endif %};
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -648,9 +649,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         options += '<option value="' + a.id + '">Aufgabe #' + a.id + ' (Deadline: ' + a.deadline + ') – Fortschritt: ' + a.progress + '%</option>';
                     });
                     assignmentSelect.innerHTML = options;
-                    const pick = preselectAssignedId || 0;
+                    const sameMemberAsPageLoad = (
+                        window.__coachingInitialMemberForAssigned != null
+                        && String(memberId) === String(window.__coachingInitialMemberForAssigned)
+                    );
+                    let pick = (sameMemberAsPageLoad && preselectAssignedId) ? preselectAssignedId : 0;
                     if (pick && assignmentSelect.querySelector('option[value="' + pick + '"]')) {
                         assignmentSelect.value = String(pick);
+                    } else if (list.length > 0) {
+                        assignmentSelect.value = String(list[0].id);
+                    } else {
+                        assignmentSelect.value = '0';
                     }
                     const hasReal = list.length > 0;
                     setAssignedSectionVisible(hasReal || !!ensureId);

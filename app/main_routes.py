@@ -456,6 +456,21 @@ def _sync_assigned_coaching_status_from_progress(assignment):
         assignment.status = 'accepted'
 
 
+def _assignment_eligible_to_link_coaching(assignment):
+    """Coach may link a coaching only to open assignments whose deadline has not passed."""
+    if not assignment:
+        return False
+    if assignment.status not in ('pending', 'accepted', 'in_progress'):
+        return False
+    if not assignment.deadline:
+        return True
+    now = datetime.now(timezone.utc)
+    dl = assignment.deadline
+    if dl.tzinfo is not None:
+        return dl >= now
+    return dl >= datetime.utcnow()
+
+
 def _user_can_assign_coachings():
     return current_user.has_permission('assign_coachings')
 
@@ -2251,8 +2266,20 @@ def add_coaching():
         )
         linked_assignment = None
         if form.assigned_coaching_id.data and form.assigned_coaching_id.data != 0:
-            coaching.assigned_coaching_id = form.assigned_coaching_id.data
-            linked_assignment = AssignedCoaching.query.get(form.assigned_coaching_id.data)
+            cand = AssignedCoaching.query.get(form.assigned_coaching_id.data)
+            if (
+                cand
+                and cand.coach_id == current_user.id
+                and cand.team_member_id == form.team_member_id.data
+                and _assignment_eligible_to_link_coaching(cand)
+            ):
+                coaching.assigned_coaching_id = cand.id
+                linked_assignment = cand
+            elif cand:
+                flash(
+                    'Die gewählte Aufgabe ist abgelaufen oder nicht mehr gültig und wurde nicht verknüpft.',
+                    'warning',
+                )
 
         db.session.add(coaching)
         db.session.flush()
@@ -2284,6 +2311,7 @@ def add_coaching():
             assignment
             and assignment.coach_id == current_user.id
             and assignment.status in ('pending', 'accepted', 'in_progress')
+            and _assignment_eligible_to_link_coaching(assignment)
         ):
             tm_a = TeamMember.query.get(assignment.team_member_id)
             if not team_member_eligible_for_new_coaching(tm_a):
@@ -2442,6 +2470,17 @@ def edit_coaching(coaching_id):
         # Form uses 0 as "no assignment" sentinel; DB FK requires NULL instead of 0.
         if not coaching.assigned_coaching_id:
             coaching.assigned_coaching_id = None
+        if coaching.assigned_coaching_id:
+            ac = AssignedCoaching.query.get(coaching.assigned_coaching_id)
+            if not ac or ac.coach_id != coaching.coach_id or ac.team_member_id != coaching.team_member_id:
+                flash('Ungültige zugewiesene Aufgabe.', 'danger')
+                return redirect(url_for('main.edit_coaching', coaching_id=coaching_id))
+            if not _assignment_eligible_to_link_coaching(ac):
+                flash(
+                    'Die gewählte Aufgabe ist abgelaufen oder nicht mehr gültig. Verknüpfung wurde entfernt.',
+                    'warning',
+                )
+                coaching.assigned_coaching_id = None
         if form.coaching_style.data != 'TCAP':
             coaching.tcap_id = None
         if leitfaden_items:
@@ -2994,15 +3033,25 @@ def available_assignments():
         if part.isdigit():
             ensure_ids.append(int(part))
 
-    base = AssignedCoaching.query.filter(
-        AssignedCoaching.team_member_id == member_id,
-        AssignedCoaching.coach_id == current_user.id,
-        AssignedCoaching.status.in_(['pending', 'accepted', 'in_progress']),
-    ).order_by(AssignedCoaching.deadline)
+    now_cut = datetime.utcnow()
+    base = (
+        AssignedCoaching.query.filter(
+            AssignedCoaching.team_member_id == member_id,
+            AssignedCoaching.coach_id == current_user.id,
+            AssignedCoaching.status.in_(['pending', 'accepted', 'in_progress']),
+            or_(
+                AssignedCoaching.deadline.is_(None),
+                AssignedCoaching.deadline >= now_cut,
+            ),
+        )
+        .order_by(AssignedCoaching.deadline)
+    )
 
     seen = set()
     out = []
     for a in base.all():
+        if not _assignment_eligible_to_link_coaching(a):
+            continue
         seen.add(a.id)
         out.append({
             'id': a.id,
@@ -3010,15 +3059,14 @@ def available_assignments():
             'progress': a.progress,
         })
 
+    ensure_allow_stale = len(ensure_ids) == 1
     for eid in ensure_ids:
         if eid in seen:
             continue
         a = AssignedCoaching.query.get(eid)
-        if (
-            a
-            and a.team_member_id == member_id
-            and a.coach_id == current_user.id
-        ):
+        if not a or a.team_member_id != member_id or a.coach_id != current_user.id:
+            continue
+        if _assignment_eligible_to_link_coaching(a) or (ensure_allow_stale and eid == ensure_ids[0]):
             seen.add(a.id)
             out.append({
                 'id': a.id,
