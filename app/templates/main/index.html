@@ -725,7 +725,19 @@
             <div class="card-body text-center d-flex flex-column justify-content-center">
                 <h5 class="card-title">Stunden gecoacht (Gesamt)</h5>
                 <p class="card-text display-4">{{ global_time_coached_display.split('(')[0].strip() if global_time_coached_display else '0 Std. 0 Min.' }}</p>
-                <small>({{ global_time_coached_display.split('(')[1].split(')')[0] if global_time_coached_display and '(' in global_time_coached_display else '0 Min.' }} gesamt)</small>
+                <small>({{ global_time_coached_display.split('(')[1].split(')')[0] if global_time_coached_display and '(' in global_time_coached_display else '0 Min.' }})</small>
+            </div>
+        </div>
+    </div>
+</div>
+<hr class="mt-0 mb-3">
+
+<div class="row mb-4">
+    <div class="col-12 mb-2">
+        <div class="card h-100">
+            <div class="card-header telekom-bg-magenta text-white">Coachings / Monate</div>
+            <div class="card-body d-flex align-items-center justify-content-center p-2" style="min-height: 280px;">
+                <canvas id="coachingsPerMonthChart" style="max-height: 320px; width: 100%;"></canvas>
             </div>
         </div>
     </div>
@@ -1231,6 +1243,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const timeSpentChartCtx = document.getElementById('timeSpentChart');
     const chartCoachingsDoneCtx = document.getElementById('coachingsDoneByTeamChart');
     const subjectDistributionCtx = document.getElementById('subjectDistributionChart');
+    const coachingsPerMonthCtx = document.getElementById('coachingsPerMonthChart');
 
     const chartLabels = {{ chart_labels|tojson|safe }};
     const chartAvgPerformanceData = {{ chart_avg_performance_mark_percentage|tojson|safe }};
@@ -1238,6 +1251,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const chartCoachingsDoneData = {{ chart_coachings_done|tojson|safe }};
     const subjectChartLabels = {{ subject_chart_labels|tojson|safe }};
     const subjectChartValues = {{ subject_chart_values|tojson|safe }};
+    const coachingPerMonthLabels = {{ chart_coaching_per_month_labels|tojson|safe }};
+    const coachingPerMonthCounts = {{ chart_coaching_per_month_counts|tojson|safe }};
 
     const telekomMagenta = 'rgba(226, 0, 116, 0.7)';
     const telekomMagentaBorder = 'rgba(226, 0, 116, 1)';
@@ -1278,6 +1293,61 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     };
+
+    drawChartWithMessage(coachingsPerMonthCtx, {
+        type: 'line',
+        data: {
+            labels: coachingPerMonthLabels,
+            datasets: [{
+                label: 'Coachings',
+                data: coachingPerMonthCounts,
+                borderColor: telekomMagentaBorder,
+                backgroundColor: 'rgba(226, 0, 116, 0.12)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.25,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                pointBackgroundColor: telekomMagentaBorder,
+                pointBorderColor: '#1a1a1a'
+            }]
+        },
+        options: {
+            ...commonChartOptions,
+            scales: {
+                ...commonChartOptions.scales,
+                y: {
+                    ...commonChartOptions.scales.y,
+                    ticks: { ...commonChartOptions.scales.y.ticks, stepSize: 1, precision: 0 },
+                    suggestedMax: coachingPerMonthCounts.length > 0
+                        ? Math.max(1, Math.ceil(Math.max(...coachingPerMonthCounts) * 1.15))
+                        : 5
+                },
+                x: {
+                    ...commonChartOptions.scales.x,
+                    ticks: {
+                        ...commonChartOptions.scales.x.ticks,
+                        maxRotation: 45,
+                        minRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: 18
+                    }
+                }
+            },
+            plugins: {
+                ...commonChartOptions.plugins,
+                datalabels: {
+                    ...commonChartOptions.plugins.datalabels,
+                    align: 'end',
+                    offset: 4,
+                    display: function (ctx) {
+                        var v = ctx.dataset.data[ctx.dataIndex];
+                        return v != null && v > 0;
+                    }
+                }
+            }
+        }
+    });
 
     drawChartWithMessage(chartAvgPerformanceCtx, {
         type: 'bar',

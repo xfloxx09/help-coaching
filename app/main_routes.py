@@ -1,7 +1,7 @@
 # app/main_routes.py
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session, current_app, jsonify, abort
 from flask_login import login_required, current_user
-from sqlalchemy import desc, or_, and_, false, exists
+from sqlalchemy import desc, or_, and_, false, exists, extract
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload, selectinload, aliased
 from app import db
@@ -590,6 +590,57 @@ def calculate_date_range(period_arg):
 def get_month_name_german(month_num):
     return ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
             'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][month_num-1]
+
+
+def _month_series_inclusive(start_d: date, end_d: date):
+    """Calendar months from start_d's month through end_d's month, inclusive."""
+    y, m = start_d.year, start_d.month
+    ey, em = end_d.year, end_d.month
+    out = []
+    while (y, m) <= (ey, em):
+        out.append((y, m))
+        if m == 12:
+            y, m = y + 1, 1
+        else:
+            m += 1
+    return out
+
+
+def _coaching_dashboard_per_month_series(graph_filters, start_date, end_date):
+    """
+    Labels (German month + year) and counts per calendar month for the coaching dashboard,
+    using the same joins and graph_filters as the Ø Performance / Team charts.
+    """
+    cy = extract('year', Coaching.coaching_date)
+    cm = extract('month', Coaching.coaching_date)
+    rows = (
+        db.session.query(cy, cm, db.func.count(Coaching.id))
+        .select_from(Coaching)
+        .join(TeamMember, Coaching.team_member_id == TeamMember.id)
+        .join(Team, TeamMember.team_id == Team.id)
+        .outerjoin(User, Coaching.coach_id == User.id)
+        .filter(*graph_filters)
+        .group_by(cy, cm)
+        .order_by(cy, cm)
+        .all()
+    )
+    counts_map = {(int(r[0]), int(r[1])): int(r[2] or 0) for r in rows}
+
+    if start_date and end_date:
+        sd = start_date.date() if isinstance(start_date, datetime) else start_date
+        ed = end_date.date() if isinstance(end_date, datetime) else end_date
+        months = _month_series_inclusive(sd, ed)
+    else:
+        if not counts_map:
+            return [], []
+        keys_sorted = sorted(counts_map.keys())
+        y0, m0 = keys_sorted[0]
+        y1, m1 = keys_sorted[-1]
+        months = _month_series_inclusive(date(y0, m0, 1), date(y1, m1, 1))
+
+    labels = [f"{get_month_name_german(m)} {y}" for y, m in months]
+    values = [counts_map.get((y, m), 0) for y, m in months]
+    return labels, values
 
 
 def get_allowed_project_ids_for_reviews():
@@ -1183,6 +1234,10 @@ def coaching_dashboard():
     subject_chart_labels = [s[0] or 'Unbekannt' for s in subject_counts]
     subject_chart_values = [s[1] for s in subject_counts]
 
+    chart_coaching_per_month_labels, chart_coaching_per_month_counts = (
+        _coaching_dashboard_per_month_series(graph_filters, start_date, end_date)
+    )
+
     global_stats = (
         db.session.query(db.func.count(Coaching.id), db.func.sum(Coaching.time_spent))
         .select_from(Coaching)
@@ -1274,6 +1329,8 @@ def coaching_dashboard():
                            chart_coachings_done=chart_coachings_count,
                            subject_chart_labels=subject_chart_labels,
                            subject_chart_values=subject_chart_values,
+                           chart_coaching_per_month_labels=chart_coaching_per_month_labels,
+                           chart_coaching_per_month_counts=chart_coaching_per_month_counts,
                            global_total_coachings_count=global_total_coachings_count,
                            global_time_coached_display=global_time_coached_display,
                            all_teams_for_filter=all_teams_for_filter,
