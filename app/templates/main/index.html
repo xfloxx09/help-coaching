@@ -735,9 +735,9 @@
 <div class="row mb-4">
     <div class="col-12 mb-2">
         <div class="card h-100">
-            <div class="card-header telekom-bg-magenta text-white">Coachings / Monate</div>
+            <div class="card-header telekom-bg-magenta text-white">Coachings / Zeitraum</div>
             <div class="card-body d-flex align-items-center justify-content-center p-2" style="min-height: 280px;">
-                <canvas id="coachingsPerMonthChart" style="max-height: 320px; width: 100%;"></canvas>
+                <canvas id="coachingsZeitraumChart" style="max-height: 320px; width: 100%;"></canvas>
             </div>
         </div>
     </div>
@@ -1243,7 +1243,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const timeSpentChartCtx = document.getElementById('timeSpentChart');
     const chartCoachingsDoneCtx = document.getElementById('coachingsDoneByTeamChart');
     const subjectDistributionCtx = document.getElementById('subjectDistributionChart');
-    const coachingsPerMonthCtx = document.getElementById('coachingsPerMonthChart');
+    const coachingsZeitraumCtx = document.getElementById('coachingsZeitraumChart');
 
     const chartLabels = {{ chart_labels|tojson|safe }};
     const chartAvgPerformanceData = {{ chart_avg_performance_mark_percentage|tojson|safe }};
@@ -1251,8 +1251,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const chartCoachingsDoneData = {{ chart_coachings_done|tojson|safe }};
     const subjectChartLabels = {{ subject_chart_labels|tojson|safe }};
     const subjectChartValues = {{ subject_chart_values|tojson|safe }};
-    const coachingPerMonthLabels = {{ chart_coaching_per_month_labels|tojson|safe }};
-    const coachingPerMonthCounts = {{ chart_coaching_per_month_counts|tojson|safe }};
+    const coachingZeitraumLabels = {{ chart_coaching_zeitraum_labels|tojson|safe }};
+    const coachingZeitraumCounts = {{ chart_coaching_zeitraum_counts|tojson|safe }};
 
     const telekomMagenta = 'rgba(226, 0, 116, 0.7)';
     const telekomMagentaBorder = 'rgba(226, 0, 116, 1)';
@@ -1294,13 +1294,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    drawChartWithMessage(coachingsPerMonthCtx, {
+    drawChartWithMessage(coachingsZeitraumCtx, {
         type: 'line',
         data: {
-            labels: coachingPerMonthLabels,
+            labels: coachingZeitraumLabels,
             datasets: [{
                 label: 'Coachings',
-                data: coachingPerMonthCounts,
+                data: coachingZeitraumCounts,
                 borderColor: telekomMagentaBorder,
                 backgroundColor: 'rgba(226, 0, 116, 0.12)',
                 borderWidth: 2,
@@ -1319,8 +1319,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 y: {
                     ...commonChartOptions.scales.y,
                     ticks: { ...commonChartOptions.scales.y.ticks, stepSize: 1, precision: 0 },
-                    suggestedMax: coachingPerMonthCounts.length > 0
-                        ? Math.max(1, Math.ceil(Math.max(...coachingPerMonthCounts) * 1.15))
+                    suggestedMax: coachingZeitraumCounts.length > 0
+                        ? Math.max(1, Math.ceil(Math.max(...coachingZeitraumCounts) * 1.15))
                         : 5
                 },
                 x: {

@@ -1,7 +1,7 @@
 # app/main_routes.py
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session, current_app, jsonify, abort
 from flask_login import login_required, current_user
-from sqlalchemy import desc, or_, and_, false, exists, extract
+from sqlalchemy import desc, or_, and_, false, exists, extract, cast, Date
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload, selectinload, aliased
 from app import db
@@ -606,38 +606,180 @@ def _month_series_inclusive(start_d: date, end_d: date):
     return out
 
 
-def _coaching_dashboard_per_month_series(graph_filters, start_date, end_date):
+def _day_series_inclusive(start_d: date, end_d: date):
+    out = []
+    d = start_d
+    while d <= end_d:
+        out.append(d)
+        d += timedelta(days=1)
+    return out
+
+
+def _monday_on_or_before(d: date) -> date:
+    return d - timedelta(days=d.weekday())
+
+
+def _week_start_series_inclusive(start_d: date, end_d: date):
+    w0 = _monday_on_or_before(start_d)
+    w1 = _monday_on_or_before(end_d)
+    out = []
+    w = w0
+    while w <= w1:
+        out.append(w)
+        w += timedelta(days=7)
+    return out
+
+
+def _coaching_timeline_bucket(period_arg, cal_date_active, start_date, end_date):
+    """hour | day | week | month — aligned with Zeitraum filter."""
+    if cal_date_active:
+        return 'hour'
+    pa = (period_arg or '').strip()
+    if pa == 'all' or pa == '':
+        return 'month'
+    if pa in (
+        '7days',
+        '30days',
+        'today',
+        'yesterday',
+        'this_week',
+        'last_week',
+        'this_month',
+        'last_month',
+    ):
+        return 'day'
+    if len(pa) == 7 and pa[4] == '-':
+        return 'day'
+    if pa == 'current_quarter':
+        return 'week'
+    if pa == 'current_year':
+        return 'month'
+    if start_date and end_date:
+        sd = start_date.date() if isinstance(start_date, datetime) else start_date
+        ed = end_date.date() if isinstance(end_date, datetime) else end_date
+        span = (ed - sd).days + 1
+        if span <= 31:
+            return 'day'
+        if span <= 120:
+            return 'week'
+        return 'month'
+    return 'month'
+
+
+def _coaching_dashboard_zeitraum_series(
+    period_arg, cal_date_active, graph_filters, start_date, end_date
+):
     """
-    Labels (German month + year) and counts per calendar month for the coaching dashboard,
-    using the same joins and graph_filters as the Ø Performance / Team charts.
+    Labels and counts for „Coachings / Zeitraum“: bucket size follows the selected period
+    (days for 7/30 Tage & Monate, weeks for Quartal, months for Jahr & „Alles“, hours for Kalendertag).
     """
+
+    def _gq(*entities):
+        return (
+            db.session.query(*entities)
+            .select_from(Coaching)
+            .join(TeamMember, Coaching.team_member_id == TeamMember.id)
+            .join(Team, TeamMember.team_id == Team.id)
+            .outerjoin(User, Coaching.coach_id == User.id)
+            .filter(*graph_filters)
+        )
+
+    bucket = _coaching_timeline_bucket(period_arg, cal_date_active, start_date, end_date)
+
+    if bucket == 'hour':
+        hr = extract('hour', Coaching.coaching_date)
+        rows = (
+            _gq(hr, db.func.count(Coaching.id))
+            .group_by(hr)
+            .order_by(hr)
+            .all()
+        )
+        counts = {int(r[0]): int(r[1] or 0) for r in rows if r[0] is not None}
+        labels = [f"{h:02d}:00" for h in range(24)]
+        values = [counts.get(h, 0) for h in range(24)]
+        return labels, values
+
+    if bucket == 'day':
+        day_col = cast(Coaching.coaching_date, Date)
+        rows = (
+            _gq(day_col, db.func.count(Coaching.id))
+            .group_by(day_col)
+            .order_by(day_col)
+            .all()
+        )
+        counts_map = {}
+        for r in rows:
+            d0 = r[0]
+            if d0 is None:
+                continue
+            if isinstance(d0, datetime):
+                d0 = d0.date()
+            counts_map[d0] = int(r[1] or 0)
+        if start_date and end_date:
+            sd = start_date.date() if isinstance(start_date, datetime) else start_date
+            ed = end_date.date() if isinstance(end_date, datetime) else end_date
+            days = _day_series_inclusive(sd, ed)
+        elif counts_map:
+            keys_sorted = sorted(counts_map.keys())
+            days = _day_series_inclusive(keys_sorted[0], keys_sorted[-1])
+        else:
+            return [], []
+        labels = [d.strftime('%d.%m.%Y') for d in days]
+        values = [counts_map.get(d, 0) for d in days]
+        return labels, values
+
+    if bucket == 'week':
+        wk = db.func.date_trunc('week', Coaching.coaching_date)
+        rows = (
+            _gq(wk, db.func.count(Coaching.id))
+            .group_by(wk)
+            .order_by(wk)
+            .all()
+        )
+        counts_map = {}
+        for r in rows:
+            ts = r[0]
+            if ts is None:
+                continue
+            d0 = ts.date() if isinstance(ts, datetime) else ts
+            counts_map[d0] = int(r[1] or 0)
+        if start_date and end_date:
+            sd = start_date.date() if isinstance(start_date, datetime) else start_date
+            ed = end_date.date() if isinstance(end_date, datetime) else end_date
+            weeks = _week_start_series_inclusive(sd, ed)
+        elif counts_map:
+            keys_sorted = sorted(counts_map.keys())
+            weeks = _week_start_series_inclusive(keys_sorted[0], keys_sorted[-1])
+        else:
+            return [], []
+        labels = []
+        for w0 in weeks:
+            iso = w0.isocalendar()
+            labels.append(f"KW {iso[1]}/{iso[0]}")
+        values = [counts_map.get(w0, 0) for w0 in weeks]
+        return labels, values
+
+    # month
     cy = extract('year', Coaching.coaching_date)
     cm = extract('month', Coaching.coaching_date)
     rows = (
-        db.session.query(cy, cm, db.func.count(Coaching.id))
-        .select_from(Coaching)
-        .join(TeamMember, Coaching.team_member_id == TeamMember.id)
-        .join(Team, TeamMember.team_id == Team.id)
-        .outerjoin(User, Coaching.coach_id == User.id)
-        .filter(*graph_filters)
+        _gq(cy, cm, db.func.count(Coaching.id))
         .group_by(cy, cm)
         .order_by(cy, cm)
         .all()
     )
     counts_map = {(int(r[0]), int(r[1])): int(r[2] or 0) for r in rows}
-
     if start_date and end_date:
         sd = start_date.date() if isinstance(start_date, datetime) else start_date
         ed = end_date.date() if isinstance(end_date, datetime) else end_date
         months = _month_series_inclusive(sd, ed)
-    else:
-        if not counts_map:
-            return [], []
+    elif counts_map:
         keys_sorted = sorted(counts_map.keys())
         y0, m0 = keys_sorted[0]
         y1, m1 = keys_sorted[-1]
         months = _month_series_inclusive(date(y0, m0, 1), date(y1, m1, 1))
-
+    else:
+        return [], []
     labels = [f"{get_month_name_german(m)} {y}" for y, m in months]
     values = [counts_map.get((y, m), 0) for y, m in months]
     return labels, values
@@ -1234,8 +1376,10 @@ def coaching_dashboard():
     subject_chart_labels = [s[0] or 'Unbekannt' for s in subject_counts]
     subject_chart_values = [s[1] for s in subject_counts]
 
-    chart_coaching_per_month_labels, chart_coaching_per_month_counts = (
-        _coaching_dashboard_per_month_series(graph_filters, start_date, end_date)
+    chart_coaching_zeitraum_labels, chart_coaching_zeitraum_counts = (
+        _coaching_dashboard_zeitraum_series(
+            period_arg, cal_date_active, graph_filters, start_date, end_date
+        )
     )
 
     global_stats = (
@@ -1329,8 +1473,8 @@ def coaching_dashboard():
                            chart_coachings_done=chart_coachings_count,
                            subject_chart_labels=subject_chart_labels,
                            subject_chart_values=subject_chart_values,
-                           chart_coaching_per_month_labels=chart_coaching_per_month_labels,
-                           chart_coaching_per_month_counts=chart_coaching_per_month_counts,
+                           chart_coaching_zeitraum_labels=chart_coaching_zeitraum_labels,
+                           chart_coaching_zeitraum_counts=chart_coaching_zeitraum_counts,
                            global_total_coachings_count=global_total_coachings_count,
                            global_time_coached_display=global_time_coached_display,
                            all_teams_for_filter=all_teams_for_filter,
