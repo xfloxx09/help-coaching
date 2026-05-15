@@ -278,7 +278,7 @@
         <hr class="my-4">
     {% endif %}
 
-    <!-- Assignment list (route filters by status: current / attention / completed) -->
+    <!-- Assignment list (route filters: current = pending + on-time open; attention = overdue open; completed) -->
     {% include 'main/_assignment_list.html' with context %}
 </div>
 {% endblock %}
