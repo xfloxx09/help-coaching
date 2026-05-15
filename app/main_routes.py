@@ -3870,18 +3870,18 @@ def assigned_coachings():
     if tab_active == 'completed':
         q = q.filter(AssignedCoaching.status.in_(['completed', 'expired', 'rejected', 'cancelled']))
     elif tab_active == 'attention':
-        # Ausstehend (noch nicht angenommen) + überfällige laufende Aufträge
-        overdue_open = and_(
+        # Nur überfällige angenommene / laufende Aufträge (Deadline überschritten)
+        q = q.filter(
             AssignedCoaching.status.in_(['accepted', 'in_progress']),
             AssignedCoaching.deadline < _now_cmp,
         )
-        q = q.filter(or_(AssignedCoaching.status == 'pending', overdue_open))
     else:
-        # Aktuelle Aufträge: angenommen / in Arbeit, Deadline noch nicht überschritten
-        q = q.filter(
+        # Aktuelle Aufträge: ausstehend (pending) + angenommen / in Arbeit mit Deadline noch nicht überschritten
+        current_open = and_(
             AssignedCoaching.status.in_(['accepted', 'in_progress']),
             AssignedCoaching.deadline >= _now_cmp,
         )
+        q = q.filter(or_(AssignedCoaching.status == 'pending', current_open))
 
     if team_filter:
         q = q.filter(TeamMember.team_id == team_filter)
@@ -4001,7 +4001,7 @@ def create_assigned_coaching():
         db.session.add(assignment)
         db.session.commit()
         flash('Coaching-Aufgabe zugewiesen.', 'success')
-        return redirect(url_for('main.assigned_coachings', project=project_id, status='attention'))
+        return redirect(url_for('main.assigned_coachings', project=project_id, status='current'))
 
     return render_template(
         'main/create_assigned_coaching.html',
@@ -4431,7 +4431,7 @@ def reject_assigned_coaching(assignment_id):
         reason = (request.form.get('rejection_reason') or '').strip()
         if len(reason) < 3:
             flash('Bitte geben Sie einen Ablehnungsgrund an (mindestens 3 Zeichen).', 'warning')
-            return redirect(url_for('main.assigned_coachings', project=list_pid, status='attention'))
+            return redirect(url_for('main.assigned_coachings', project=list_pid, status='current'))
         assignment.status = 'rejected'
         assignment.rejection_reason = reason[:2000]
         db.session.commit()
