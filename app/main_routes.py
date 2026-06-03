@@ -607,26 +607,6 @@ def _parse_coaching_dashboard_von_bis(date_from_str, date_to_str):
     return start, end
 
 
-def _coaching_dashboard_coaches_for_team(team_id, scope_filters_before_coach):
-    """Distinct coaches with at least one coaching in scope for the selected team."""
-    rows = (
-        db.session.query(User.id, User.username)
-        .select_from(Coaching)
-        .join(TeamMember, Coaching.team_member_id == TeamMember.id)
-        .join(Team, TeamMember.team_id == Team.id)
-        .join(User, Coaching.coach_id == User.id)
-        .filter(
-            Team.id == team_id,
-            Coaching.coach_id.isnot(None),
-            *scope_filters_before_coach,
-        )
-        .distinct()
-        .order_by(User.username)
-        .all()
-    )
-    return rows
-
-
 def get_month_name_german(month_num):
     return ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
             'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][month_num-1]
@@ -1387,30 +1367,6 @@ def coaching_dashboard():
         else:
             scope_filters.append(Coaching.team_member_id == dashboard_member.id)
 
-    coach_arg = (request.args.get('coach') or 'all').strip()
-    current_coach_id_filter = 'all'
-    coaches_for_filter = []
-    if team_arg != 'all' and team_arg.isdigit():
-        tid_coach = int(team_arg)
-        team_row_coach = Team.query.filter_by(id=tid_coach).first()
-        if (
-            team_row_coach
-            and team_row_coach.name != ARCHIV_TEAM_NAME
-            and team_row_coach.active_for_coaching
-            and dashboard_project_id != -1
-            and (accessible is None or team_row_coach.project_id in accessible)
-            and (dashboard_project_id is None or team_row_coach.project_id == dashboard_project_id)
-        ):
-            coaches_for_filter = _coaching_dashboard_coaches_for_team(tid_coach, scope_filters)
-            allowed_coach_ids = {r[0] for r in coaches_for_filter}
-            if coach_arg != 'all' and coach_arg.isdigit():
-                cid = int(coach_arg)
-                if cid in allowed_coach_ids:
-                    scope_filters.append(Coaching.coach_id == cid)
-                    current_coach_id_filter = str(cid)
-                else:
-                    flash('Coach-Filter ungültig für dieses Team.', 'warning')
-
     archiv_team = get_or_create_archiv_team()
     # Graphs must hide every ARCHIV team row, not only the default ARCHIV team id.
     graph_filters = scope_filters + [Team.name != ARCHIV_TEAM_NAME]
@@ -1595,8 +1551,6 @@ def coaching_dashboard():
     if period_arg == 'vonbis' and date_from_str and date_to_str:
         coaching_dashboard_persist_query['date_from'] = date_from_str
         coaching_dashboard_persist_query['date_to'] = date_to_str
-    if current_coach_id_filter != 'all':
-        coaching_dashboard_persist_query['coach'] = current_coach_id_filter
     if dashboard_member:
         coaching_dashboard_persist_query['member_id'] = dashboard_member.id
     if coaching_dashboard_url_project is not None:
@@ -1645,8 +1599,6 @@ def coaching_dashboard():
                            coaching_dashboard_search_reset_href=coaching_dashboard_search_reset_href,
                            dashboard_member_id=dashboard_member.id if dashboard_member else None,
                            dashboard_member_name=dashboard_member.name if dashboard_member else None,
-                           coaches_for_filter=coaches_for_filter,
-                           current_coach_id_filter=current_coach_id_filter,
                            coaching_dashboard_date_from=date_from_str if period_arg == 'vonbis' else '',
                            coaching_dashboard_date_to=date_to_str if period_arg == 'vonbis' else '',
                            config=current_app.config)
