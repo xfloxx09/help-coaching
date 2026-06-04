@@ -364,11 +364,6 @@
 
             {% if can_see_overdue_tab %}
             <div class="tab-pane fade {% if tab_ueberfaellig_active %}show active{% endif %}" id="tab-ueberfaellig" role="tabpanel" aria-labelledby="tab-ueberfaellig-link">
-                <div class="alert alert-danger border-0 mb-3" style="background: rgba(220, 53, 69, 0.15); color: #f0f0f0; border-left: 4px solid #dc3545 !important;">
-                    <i class="fas fa-exclamation-triangle mr-2"></i>
-                    <strong>Überfällige Planungen</strong> — Das geplante Datum liegt in der Vergangenheit. Verschieben Sie den Termin auf heute oder später, führen Sie das Coaching/Workshop durch, oder löschen Sie die Planung.
-                </div>
-
                 {% if can_see_coaching_plans %}
                 <h3 class="mb-3 h5"><i class="fas fa-user-clock text-danger"></i> Geplante Coachings (überfällig)</h3>
                 {% if not overdue_coaching_items %}
