@@ -324,6 +324,50 @@
     outline: none;
     box-shadow: 0 0 0 2px rgba(255, 126, 184, 0.45);
 }
+.dash-filter-toolbar .dash-filter-control {
+    min-width: 11.5rem;
+}
+.dash-filter-toolbar .form-group label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.9rem;
+}
+.dash-zeitraum-block {
+    min-width: 12rem;
+}
+.dash-von-bis-panel {
+    margin-top: 0.5rem;
+    padding: 0.65rem 0.75rem 0.7rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #4a4a4a;
+    border-radius: 8px;
+}
+.dash-von-bis-range {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+.dash-von-bis-field {
+    flex: 1 1 10rem;
+    min-width: 10rem;
+}
+.dash-von-bis-field label {
+    display: block;
+    margin: 0 0 0.25rem 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #b8b8b8;
+    text-transform: lowercase;
+}
+.dash-von-bis-sep {
+    flex-shrink: 0;
+    color: #9a9a9a;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding-bottom: 0.5rem;
+    user-select: none;
+}
 @media (min-width: 768px) {
     .coaching-dashboard-fixed-table tr.coaching-dash-row-desktop {
         display: table-row !important;
@@ -661,13 +705,13 @@
 </div>
 {% endif %}
 
-<form method="GET" action="{{ url_for('main.coaching_dashboard') }}" id="filterForm" class="mb-4">
+<form method="GET" action="{{ url_for('main.coaching_dashboard') }}" id="filterForm" class="mb-4 dash-filter-toolbar">
     <div class="form-row align-items-end">
         <div class="col-md-auto">
-            <div class="form-group mr-2">
-                <label for="period_filter" class="mr-2">Zeitraum:</label>
-                <select name="period" id="period_filter" class="form-control custom-select form-control-sm">
-                    <option value="vonbis" {% if current_period_filter == 'vonbis' %}selected{% endif %}>Von–bis</option>
+            <div class="form-group mr-2 mb-0 dash-zeitraum-block">
+                <label for="period_filter">Zeitraum:</label>
+                <select name="period" id="period_filter" class="form-control custom-select form-control-sm dash-filter-control">
+                    <option value="vonbis" {% if current_period_filter == 'vonbis' %}selected{% endif %}>von-bis</option>
                     <option value="all" {% if current_period_filter == 'all' %}selected{% endif %}>Alles</option>
                     <option value="7days" {% if current_period_filter == '7days' %}selected{% endif %}>Letzte 7 Tage</option>
                     <option value="30days" {% if current_period_filter == '30days' %}selected{% endif %}>Letzte 30 Tage</option>
@@ -683,29 +727,30 @@
                     </optgroup>
                     {% endif %}
                 </select>
-            </div>
-        </div>
-        <div class="col-md-auto" id="von_bis_date_wrap" style="{% if current_period_filter != 'vonbis' %}display:none;{% endif %}">
-            <div class="form-group mr-2 mb-0">
-                <label for="date_from" class="mr-2">Von:</label>
-                <input type="date" name="date_from" id="date_from" class="form-control form-control-sm"
-                       value="{{ coaching_dashboard_date_from or '' }}">
-            </div>
-        </div>
-        <div class="col-md-auto" id="von_bis_date_wrap_bis" style="{% if current_period_filter != 'vonbis' %}display:none;{% endif %}">
-            <div class="form-group mr-2 mb-0">
-                <label for="date_to" class="mr-2">Bis:</label>
-                <input type="date" name="date_to" id="date_to" class="form-control form-control-sm"
-                       value="{{ coaching_dashboard_date_to or '' }}">
+                <div id="von_bis_panel" class="dash-von-bis-panel" style="{% if current_period_filter != 'vonbis' %}display:none;{% endif %}">
+                    <div class="dash-von-bis-range">
+                        <div class="dash-von-bis-field">
+                            <label for="date_from">von</label>
+                            <input type="date" name="date_from" id="date_from" class="form-control form-control-sm dash-filter-control"
+                                   value="{{ coaching_dashboard_date_from or '' }}">
+                        </div>
+                        <span class="dash-von-bis-sep" aria-hidden="true">–</span>
+                        <div class="dash-von-bis-field">
+                            <label for="date_to">bis</label>
+                            <input type="date" name="date_to" id="date_to" class="form-control form-control-sm dash-filter-control"
+                                   value="{{ coaching_dashboard_date_to or '' }}">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
         {# Project filter – only show if user has access to multiple projects #}
         {% if all_projects and all_projects|length > 0 %}
         <div class="col-md-auto">
-            <div class="form-group mr-2">
-                <label for="project_filter" class="mr-2">Projekt:</label>
-                <select name="project" id="project_filter" class="form-control custom-select form-control-sm" onchange="var tf=document.getElementById('team_filter'); if(tf){tf.value='all';} this.form.submit();">
+            <div class="form-group mr-2 mb-0">
+                <label for="project_filter">Projekt:</label>
+                <select name="project" id="project_filter" class="form-control custom-select form-control-sm dash-filter-control" onchange="var tf=document.getElementById('team_filter'); if(tf){tf.value='all';} this.form.submit();">
                     {% if show_global_all_projects_option %}
                         {% if coaching_dashboard_project_all_is_blank %}
                         <option value="" {% if current_project_filter is none %}selected{% endif %}>Alle Projekte</option>
@@ -722,9 +767,9 @@
         {% endif %}
 
         <div class="col-md-auto">
-            <div class="form-group mr-2">
-                <label for="team_filter" class="mr-2">Team:</label>
-                <select name="team" id="team_filter" class="form-control custom-select form-control-sm">
+            <div class="form-group mr-2 mb-0">
+                <label for="team_filter">Team:</label>
+                <select name="team" id="team_filter" class="form-control custom-select form-control-sm dash-filter-control">
                     <option value="all" {% if current_team_id_filter == 'all' or not current_team_id_filter %}selected{% endif %}>Alle Teams</option>
                     {% for team_obj in all_teams_for_filter %}
                     <option value="{{ team_obj.id }}" {% if current_team_id_filter == team_obj.id|string %}selected{% endif %}>
@@ -749,12 +794,14 @@
         <input type="hidden" name="chart_group_perf" id="chart_group_perf" value="{{ chart_group_perf }}">
         {% endif %}
         <div class="col-md-auto">
-            <div class="form-group">
+            <div class="form-group mb-0">
+                <label class="d-block" style="visibility:hidden;height:1.35rem;margin-bottom:0.35rem;" aria-hidden="true">&nbsp;</label>
                 <button type="submit" class="btn telekom-button btn-sm">Filter anwenden</button>
             </div>
         </div>
         <div class="col-md-auto">
-            <div class="form-group">
+            <div class="form-group mb-0">
+                <label class="d-block" style="visibility:hidden;height:1.35rem;margin-bottom:0.35rem;" aria-hidden="true">&nbsp;</label>
                 <a href="{{ url_for('main.coaching_dashboard') }}" class="btn btn-secondary btn-sm">Filter zurücksetzen</a>
             </div>
         </div>
@@ -763,12 +810,10 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var periodSel = document.getElementById('period_filter');
-    var vonWrap = document.getElementById('von_bis_date_wrap');
-    var bisWrap = document.getElementById('von_bis_date_wrap_bis');
+    var vonPanel = document.getElementById('von_bis_panel');
     function toggleVonBis() {
         var show = periodSel && periodSel.value === 'vonbis';
-        if (vonWrap) vonWrap.style.display = show ? '' : 'none';
-        if (bisWrap) bisWrap.style.display = show ? '' : 'none';
+        if (vonPanel) { vonPanel.style.display = show ? '' : 'none'; }
     }
     if (periodSel) {
         periodSel.addEventListener('change', toggleVonBis);

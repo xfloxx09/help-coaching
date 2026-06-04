@@ -1459,7 +1459,7 @@ def coaching_dashboard():
     elif period_arg == 'vonbis':
         start_date, end_date = _parse_coaching_dashboard_von_bis(date_from_str, date_to_str)
         if not start_date:
-            flash('Bitte gültiges Von- und Bis-Datum wählen (Zeitraum Von–bis).', 'warning')
+            flash('Bitte gültiges von- und bis-Datum wählen (Zeitraum von-bis).', 'warning')
             period_arg = '7days'
             start_date, end_date = calculate_date_range('7days')
     else:
