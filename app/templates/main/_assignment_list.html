@@ -53,6 +53,12 @@
                     <thead>
                         <tr>
                             <th>
+                                Start
+                                <a href="{{ url_for('main.assigned_coachings', project=active_project_id, status=status_filter, team=team_filter, coach=coach_filter, member=member_filter, search=search_term, sort_by='start', sort_dir='asc' if sort_by != 'start' or sort_dir == 'desc' else 'desc') }}" class="sort-link">
+                                    <i class="fas fa-sort{% if sort_by == 'start' %}-{{ 'up' if sort_dir == 'asc' else 'down' }}{% endif %}"></i>
+                                </a>
+                            </th>
+                            <th>
                                 Deadline
                                 <a href="{{ url_for('main.assigned_coachings', project=active_project_id, status=status_filter, team=team_filter, coach=coach_filter, member=member_filter, search=search_term, sort_by='deadline', sort_dir='asc' if sort_by != 'deadline' or sort_dir == 'desc' else 'desc') }}" class="sort-link">
                                     <i class="fas fa-sort{% if sort_by == 'deadline' %}-{{ 'up' if sort_dir == 'asc' else 'down' }}{% endif %}"></i>
@@ -79,6 +85,7 @@
                     <tbody>
                         {% for assignment in assignments.items %}
                         <tr>
+                            <td>{{ assignment.created_at|athens_time('%d.%m.%Y') if assignment.created_at else '—' }}</td>
                             <td>{{ assignment.deadline|athens_time('%d.%m.%Y %H:%M') }}</td>
                             <td>{{ assignment.team_member.name }} ({{ assignment.team_member.team.name }})</td>
                             <td>{{ assignment.coach.coach_display_name }}</td>

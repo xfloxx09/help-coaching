@@ -3983,6 +3983,8 @@ def assigned_coachings():
         order_expr = CoachAlias.username
     elif sort_by == 'member_name':
         order_expr = TeamMember.name
+    elif sort_by == 'start':
+        order_expr = AssignedCoaching.created_at
     else:
         order_expr = AssignedCoaching.deadline
 
@@ -4004,7 +4006,7 @@ def assigned_coachings():
         project_bar_extra_hidden['member'] = member_filter
     if search_term:
         project_bar_extra_hidden['search'] = search_term
-    if sort_by != 'deadline':
+    if sort_by not in ('deadline',):
         project_bar_extra_hidden['sort_by'] = sort_by
     if sort_dir != 'asc':
         project_bar_extra_hidden['sort_dir'] = sort_dir
