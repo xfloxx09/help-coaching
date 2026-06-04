@@ -730,7 +730,9 @@
         <input type="hidden" name="member_id" value="{{ dashboard_member_id }}">
         {% endif %}
         {% if show_chart_group_toggle %}
-        <input type="hidden" name="chart_group" id="chart_group_filter" value="{{ chart_group_mode }}">
+        <input type="hidden" name="chart_group_coachings" id="chart_group_coachings" value="{{ chart_group_coachings }}">
+        <input type="hidden" name="chart_group_time" id="chart_group_time" value="{{ chart_group_time }}">
+        <input type="hidden" name="chart_group_perf" id="chart_group_perf" value="{{ chart_group_perf }}">
         {% endif %}
         <div class="col-md-auto">
             <div class="form-group">
@@ -785,13 +787,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <div class="row">
     <div class="col-md-6 mb-4">
-        <div class="card h-100">
+        <div class="card h-100 dash-bar-chart-card" data-chart-key="coachings">
             <div class="card-header telekom-bg-magenta text-white dash-chart-header d-flex justify-content-between align-items-center flex-wrap">
-                <span class="dash-chart-title mb-0" data-title-teams="Anzahl Coachings / Team" data-title-projects="Anzahl Coachings / Projekt">{% if chart_group_mode == 'projects' %}Anzahl Coachings / Projekt{% else %}Anzahl Coachings / Team{% endif %}</span>
+                <span class="dash-chart-title mb-0" data-title-teams="Anzahl Coachings / Team" data-title-projects="Anzahl Coachings / Projekt">{% if chart_group_coachings == 'projects' %}Anzahl Coachings / Projekt{% else %}Anzahl Coachings / Team{% endif %}</span>
                 {% if show_chart_group_toggle %}
-                <div class="btn-group btn-group-sm dash-chart-group-toggle" role="group" aria-label="Diagramm nach Teams oder Projekten">
-                    <button type="button" class="btn btn-sm {% if chart_group_mode == 'teams' %}btn-light{% else %}btn-outline-light{% endif %}" data-chart-group="teams">Teams</button>
-                    <button type="button" class="btn btn-sm {% if chart_group_mode == 'projects' %}btn-light{% else %}btn-outline-light{% endif %}" data-chart-group="projects">Projekte</button>
+                <div class="btn-group btn-group-sm dash-chart-group-toggle" role="group" aria-label="Anzahl Coachings nach Team oder Projekt">
+                    <button type="button" class="btn btn-sm {% if chart_group_coachings == 'teams' %}btn-light{% else %}btn-outline-light{% endif %}" data-chart-key="coachings" data-chart-group="teams">Team</button>
+                    <button type="button" class="btn btn-sm {% if chart_group_coachings == 'projects' %}btn-light{% else %}btn-outline-light{% endif %}" data-chart-key="coachings" data-chart-group="projects">Projekt</button>
                 </div>
                 {% endif %}
             </div>
@@ -801,13 +803,13 @@ document.addEventListener('DOMContentLoaded', function () {
         </div>
     </div>
     <div class="col-md-6 mb-4">
-        <div class="card h-100">
+        <div class="card h-100 dash-bar-chart-card" data-chart-key="time">
             <div class="card-header telekom-bg-magenta text-white dash-chart-header d-flex justify-content-between align-items-center flex-wrap">
-                <span class="dash-chart-title mb-0" data-title-teams="Gesamte Coaching-Dauer / Team (Min.)" data-title-projects="Gesamte Coaching-Dauer / Projekt (Min.)">{% if chart_group_mode == 'projects' %}Gesamte Coaching-Dauer / Projekt (Min.){% else %}Gesamte Coaching-Dauer / Team (Min.){% endif %}</span>
+                <span class="dash-chart-title mb-0" data-title-teams="Gesamte Coaching-Dauer / Team (Min.)" data-title-projects="Gesamte Coaching-Dauer / Projekt (Min.)">{% if chart_group_time == 'projects' %}Gesamte Coaching-Dauer / Projekt (Min.){% else %}Gesamte Coaching-Dauer / Team (Min.){% endif %}</span>
                 {% if show_chart_group_toggle %}
-                <div class="btn-group btn-group-sm dash-chart-group-toggle" role="group" aria-label="Diagramm nach Teams oder Projekten">
-                    <button type="button" class="btn btn-sm {% if chart_group_mode == 'teams' %}btn-light{% else %}btn-outline-light{% endif %}" data-chart-group="teams">Teams</button>
-                    <button type="button" class="btn btn-sm {% if chart_group_mode == 'projects' %}btn-light{% else %}btn-outline-light{% endif %}" data-chart-group="projects">Projekte</button>
+                <div class="btn-group btn-group-sm dash-chart-group-toggle" role="group" aria-label="Coaching-Dauer nach Team oder Projekt">
+                    <button type="button" class="btn btn-sm {% if chart_group_time == 'teams' %}btn-light{% else %}btn-outline-light{% endif %}" data-chart-key="time" data-chart-group="teams">Team</button>
+                    <button type="button" class="btn btn-sm {% if chart_group_time == 'projects' %}btn-light{% else %}btn-outline-light{% endif %}" data-chart-key="time" data-chart-group="projects">Projekt</button>
                 </div>
                 {% endif %}
             </div>
@@ -819,13 +821,13 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 <div class="row mt-0 mt-md-4">
     <div class="col-md-6 mb-4">
-        <div class="card h-100">
+        <div class="card h-100 dash-bar-chart-card" data-chart-key="perf">
             <div class="card-header telekom-bg-magenta text-white dash-chart-header d-flex justify-content-between align-items-center flex-wrap">
-                <span class="dash-chart-title mb-0" data-title-teams="Ø Performance / Team (%)" data-title-projects="Ø Performance / Projekt (%)">{% if chart_group_mode == 'projects' %}Ø Performance / Projekt (%){% else %}Ø Performance / Team (%){% endif %}</span>
+                <span class="dash-chart-title mb-0" data-title-teams="Ø Performance / Team (%)" data-title-projects="Ø Performance / Projekt (%)">{% if chart_group_perf == 'projects' %}Ø Performance / Projekt (%){% else %}Ø Performance / Team (%){% endif %}</span>
                 {% if show_chart_group_toggle %}
-                <div class="btn-group btn-group-sm dash-chart-group-toggle" role="group" aria-label="Diagramm nach Teams oder Projekten">
-                    <button type="button" class="btn btn-sm {% if chart_group_mode == 'teams' %}btn-light{% else %}btn-outline-light{% endif %}" data-chart-group="teams">Teams</button>
-                    <button type="button" class="btn btn-sm {% if chart_group_mode == 'projects' %}btn-light{% else %}btn-outline-light{% endif %}" data-chart-group="projects">Projekte</button>
+                <div class="btn-group btn-group-sm dash-chart-group-toggle" role="group" aria-label="Performance nach Team oder Projekt">
+                    <button type="button" class="btn btn-sm {% if chart_group_perf == 'teams' %}btn-light{% else %}btn-outline-light{% endif %}" data-chart-key="perf" data-chart-group="teams">Team</button>
+                    <button type="button" class="btn btn-sm {% if chart_group_perf == 'projects' %}btn-light{% else %}btn-outline-light{% endif %}" data-chart-key="perf" data-chart-group="projects">Projekt</button>
                 </div>
                 {% endif %}
             </div>
@@ -879,7 +881,9 @@ document.addEventListener('DOMContentLoaded', function () {
             <input type="hidden" name="member_id" value="{{ dashboard_member_id }}">
             {% endif %}
             {% if show_chart_group_toggle %}
-            <input type="hidden" name="chart_group" value="{{ chart_group_mode }}">
+            <input type="hidden" name="chart_group_coachings" value="{{ chart_group_coachings }}">
+            <input type="hidden" name="chart_group_time" value="{{ chart_group_time }}">
+            <input type="hidden" name="chart_group_perf" value="{{ chart_group_perf }}">
             {% endif %}
             <div class="input-group w-100">
                 <input type="text" name="search" class="form-control form-control-sm" placeholder="Suchen (Name, Coach, Thema...)" value="{{ current_search_term or '' }}" aria-label="Suchbegriff für Coachings">
@@ -1344,8 +1348,17 @@ document.addEventListener('DOMContentLoaded', function () {
             counts: {{ chart_project_coachings_count|tojson|safe }}
         }
     };
-    let activeChartGroup = {{ chart_group_mode|tojson|safe }};
+    const activeChartGroups = {
+        coachings: {{ chart_group_coachings|tojson|safe }},
+        time: {{ chart_group_time|tojson|safe }},
+        perf: {{ chart_group_perf|tojson|safe }}
+    };
     const barChartInstances = { coachings: null, time: null, perf: null };
+    const barChartCtxByKey = {
+        coachings: chartCoachingsDoneCtx,
+        time: timeSpentChartCtx,
+        perf: chartAvgPerformanceCtx
+    };
     const subjectChartLabels = {{ subject_chart_labels|tojson|safe }};
     const subjectChartValues = {{ subject_chart_values|tojson|safe }};
     const coachingZeitraumLabels = {{ chart_coaching_zeitraum_labels|tojson|safe }};
@@ -1383,34 +1396,36 @@ document.addEventListener('DOMContentLoaded', function () {
         return null;
     }
 
-    function activeBarData() {
-        return chartDataByGroup[activeChartGroup] || chartDataByGroup.teams;
+    function barDataForKey(chartKey) {
+        const mode = activeChartGroups[chartKey] || 'teams';
+        return chartDataByGroup[mode] || chartDataByGroup.teams;
     }
 
-    function syncChartGroupUi() {
-        document.querySelectorAll('.dash-chart-title').forEach(function (el) {
-            const title = activeChartGroup === 'projects' ? el.dataset.titleProjects : el.dataset.titleTeams;
-            if (title) { el.textContent = title; }
-        });
-        document.querySelectorAll('.dash-chart-group-toggle [data-chart-group]').forEach(function (btn) {
-            const on = btn.getAttribute('data-chart-group') === activeChartGroup;
+    function syncChartGroupUi(chartKey) {
+        const card = document.querySelector('.dash-bar-chart-card[data-chart-key="' + chartKey + '"]');
+        if (!card) { return; }
+        const mode = activeChartGroups[chartKey] || 'teams';
+        const titleEl = card.querySelector('.dash-chart-title');
+        if (titleEl) {
+            titleEl.textContent = mode === 'projects' ? titleEl.dataset.titleProjects : titleEl.dataset.titleTeams;
+        }
+        card.querySelectorAll('[data-chart-group]').forEach(function (btn) {
+            const on = btn.getAttribute('data-chart-group') === mode;
             btn.classList.toggle('btn-light', on);
             btn.classList.toggle('btn-outline-light', !on);
         });
-        const hidden = document.getElementById('chart_group_filter');
-        if (hidden) { hidden.value = activeChartGroup; }
-        document.querySelectorAll('input[type="hidden"][name="chart_group"]').forEach(function (inp) {
-            if (inp.id !== 'chart_group_filter') { inp.value = activeChartGroup; }
+        const hidden = document.getElementById('chart_group_' + chartKey);
+        if (hidden) { hidden.value = mode; }
+        document.querySelectorAll('input[type="hidden"][name="chart_group_' + chartKey + '"]').forEach(function (inp) {
+            if (inp.id !== 'chart_group_' + chartKey) { inp.value = mode; }
         });
     }
 
-    function destroyBarCharts() {
-        ['coachings', 'time', 'perf'].forEach(function (key) {
-            if (barChartInstances[key]) {
-                barChartInstances[key].destroy();
-                barChartInstances[key] = null;
-            }
-        });
+    function destroyBarChart(chartKey) {
+        if (barChartInstances[chartKey]) {
+            barChartInstances[chartKey].destroy();
+            barChartInstances[chartKey] = null;
+        }
     }
 
     const commonChartOptions = {
@@ -1437,15 +1452,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    function renderBarCharts() {
-        const d = activeBarData();
+    function renderBarChart(chartKey) {
+        const d = barDataForKey(chartKey);
         const labels = d.labels || [];
         const counts = d.counts || [];
         const times = d.time || [];
         const avg = d.avg || [];
-        destroyBarCharts();
+        const ctx = barChartCtxByKey[chartKey];
+        destroyBarChart(chartKey);
 
-        barChartInstances.coachings = drawChartWithMessage(chartCoachingsDoneCtx, {
+        if (chartKey === 'coachings') {
+        barChartInstances.coachings = drawChartWithMessage(ctx, {
             type: 'bar',
             data: {
                 labels: labels,
@@ -1469,8 +1486,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
         });
+        return;
+        }
 
-        barChartInstances.time = drawChartWithMessage(timeSpentChartCtx, {
+        if (chartKey === 'time') {
+        barChartInstances.time = drawChartWithMessage(ctx, {
             type: 'bar',
             data: {
                 labels: labels,
@@ -1500,8 +1520,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
         });
+        return;
+        }
 
-        barChartInstances.perf = drawChartWithMessage(chartAvgPerformanceCtx, {
+        if (chartKey === 'perf') {
+        barChartInstances.perf = drawChartWithMessage(ctx, {
             type: 'bar',
             data: {
                 labels: labels,
@@ -1537,19 +1560,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
         });
+        }
     }
 
-    function setChartGroup(mode) {
+    function setChartGroup(chartKey, mode) {
         if (!chartDataByGroup[mode]) { return; }
-        activeChartGroup = mode;
-        syncChartGroupUi();
-        renderBarCharts();
+        activeChartGroups[chartKey] = mode;
+        syncChartGroupUi(chartKey);
+        renderBarChart(chartKey);
     }
 
-    renderBarCharts();
-    document.querySelectorAll('.dash-chart-group-toggle [data-chart-group]').forEach(function (btn) {
+    ['coachings', 'time', 'perf'].forEach(function (chartKey) {
+        renderBarChart(chartKey);
+    });
+    document.querySelectorAll('.dash-chart-group-toggle button[data-chart-key]').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            setChartGroup(btn.getAttribute('data-chart-group'));
+            setChartGroup(btn.getAttribute('data-chart-key'), btn.getAttribute('data-chart-group'));
         });
     });
 
