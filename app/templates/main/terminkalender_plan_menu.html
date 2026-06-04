@@ -170,9 +170,15 @@
     </div>
 
     <p class="plan-menu-footer mb-0">
+        {% if from_planned_list %}
+        <a href="{{ url_for('main.planned_coachings_list') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Zurück zu geplanten Coachings
+        </a>
+        {% else %}
         <a href="{{ url_for('main.terminkalender', year=plan_date.year, month=plan_date.month) }}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left" aria-hidden="true"></i> Zurück zum Terminkalender
         </a>
+        {% endif %}
     </p>
 </div>
 {% endblock %}

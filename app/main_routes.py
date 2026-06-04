@@ -2065,17 +2065,20 @@ def terminkalender_plan_menu():
         if acc is None or pid in acc:
             workshop_project_id = pid
 
+    from_planned_list = (request.args.get('source') or '').strip() == 'geplante-coachings'
     can_capture_today = (
         is_today
         and current_user.has_permission('add_coaching')
         and bool(add_coaching_project_id)
     )
     can_workshop_capture_today = is_today and can_plan_w and bool(workshop_project_id)
-    show_plan_coaching = can_plan_c and not is_today
-    show_plan_workshop = can_plan_w and not is_today
+    show_plan_coaching = can_plan_c and (not is_today or from_planned_list)
+    show_plan_workshop = can_plan_w and (not is_today or from_planned_list)
 
     if not (show_plan_coaching or show_plan_workshop or can_capture_today or can_workshop_capture_today):
         flash('Keine passende Berechtigung für diese Aktion.', 'danger')
+        if from_planned_list:
+            return redirect(url_for('main.planned_coachings_list'))
         return redirect(url_for('main.terminkalender'))
 
     return render_template(
@@ -2089,6 +2092,7 @@ def terminkalender_plan_menu():
         can_workshop_capture_today=can_workshop_capture_today,
         add_coaching_project_id=add_coaching_project_id,
         workshop_project_id=workshop_project_id,
+        from_planned_list=from_planned_list,
         config=current_app.config,
     )
 
@@ -3759,6 +3763,7 @@ def planned_coachings_list():
         n_overdue=n_overdue,
         can_manage_own_plans=can_manage_own_plans,
         can_see_overdue_tab=can_see_overdue_tab,
+        can_jetzt_planen=can_pc or can_pw,
         config=current_app.config,
     )
 
