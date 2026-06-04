@@ -2067,11 +2067,17 @@ def terminkalender_plan_menu():
 
     from_planned_list = (request.args.get('source') or '').strip() == 'geplante-coachings'
     can_capture_today = (
-        is_today
+        not from_planned_list
+        and is_today
         and current_user.has_permission('add_coaching')
         and bool(add_coaching_project_id)
     )
-    can_workshop_capture_today = is_today and can_plan_w and bool(workshop_project_id)
+    can_workshop_capture_today = (
+        not from_planned_list
+        and is_today
+        and can_plan_w
+        and bool(workshop_project_id)
+    )
     show_plan_coaching = can_plan_c and (not is_today or from_planned_list)
     show_plan_workshop = can_plan_w and (not is_today or from_planned_list)
 

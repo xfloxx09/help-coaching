@@ -119,7 +119,7 @@
 <div class="container-fluid plan-menu-root py-3 px-2 px-md-3">
     <div class="plan-menu-header">
         <h1 class="plan-menu-title"><i class="fas fa-calendar-plus" aria-hidden="true"></i> Termin anlegen</h1>
-        <p class="plan-menu-sub">{% if is_today %}Heute direkt eintragen{% else %}Was möchten Sie für diesen Tag eintragen?{% endif %}</p>
+        <p class="plan-menu-sub">{% if from_planned_list %}Welche Planung möchten Sie anlegen?{% elif is_today %}Heute direkt eintragen{% else %}Was möchten Sie für diesen Tag eintragen?{% endif %}</p>
         <div class="plan-menu-date">
             <i class="far fa-calendar-alt" aria-hidden="true"></i>
             <span>Datum: <strong>{{ plan_date.strftime('%d.%m.%Y') }}</strong></span>
