@@ -86,7 +86,7 @@
                         {% for assignment in assignments.items %}
                         <tr>
                             <td>{{ assignment.created_at|athens_time('%d.%m.%Y') if assignment.created_at else '—' }}</td>
-                            <td>{{ assignment.deadline|athens_time('%d.%m.%Y %H:%M') }}</td>
+                            <td>{{ assignment.deadline|athens_time('%d.%m.%Y') }}</td>
                             <td>{{ assignment.team_member.name }} ({{ assignment.team_member.team.name }})</td>
                             <td>{{ assignment.coach.coach_display_name }}</td>
                             <td>{{ assignment.expected_coaching_count }}</td>
