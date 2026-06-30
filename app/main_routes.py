@@ -4301,7 +4301,7 @@ def api_assignment_coaches():
     project_id = get_visible_project_id()
     if not project_id:
         return jsonify([])
-    mids = request.args.getlist('team_member_ids')
+    mids = request.args.getlist('team_member_ids') or request.args.getlist('team_member_ids[]')
     parsed = []
     for raw in mids:
         for part in str(raw).split(','):
