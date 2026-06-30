@@ -89,7 +89,12 @@ $(document).ready(function() {
         if (ids.length === 1) {
             params.team_member_id = ids[0];
         }
-        $.getJSON("{{ url_for('main.api_assignment_coaches') }}", params).done(function(rows) {
+        $.ajax({
+            url: "{{ url_for('main.api_assignment_coaches') }}",
+            data: params,
+            dataType: 'json',
+            traditional: true
+        }).done(function(rows) {
             var $c = $('#coach_id');
             var prev = $c.val();
             $c.empty();
