@@ -36,12 +36,15 @@ from app.utils import (
     ROLE_TRAINER,
     get_or_create_archiv_team,
     ARCHIV_TEAM_NAME,
+    ilike_person_name_search_expr,
     get_accessible_project_ids,
     team_member_eligible_for_new_coaching,
     team_member_eligible_for_coaching_assignment,
     user_eligible_assignable_coach,
     users_for_assignment_coach_dropdown,
     users_for_assignment_coach_dropdown_multi,
+    _build_assignment_coach_eval_context,
+    _teams_by_id_for_leader_refs,
     workshop_individual_rating_from_request,
     leitfaden_items_for_project,
     leitfaden_items_for_coaching_edit,
@@ -1288,6 +1291,13 @@ def _assigned_coachings_scope_query(project_filter_id=None):
     return q
 
 
+def _assigned_list_default_sort(tab_active):
+    """Default table sort: newest Start first on current/completed tabs."""
+    if tab_active in ('current', 'completed'):
+        return 'start', 'desc'
+    return 'deadline', 'asc'
+
+
 def _gesamtbericht_project_bar_extra(
     tab_active,
     team_filter,
@@ -1310,9 +1320,10 @@ def _gesamtbericht_project_bar_extra(
         d['search'] = search_term
     if project_leader_filter:
         d['project_leader'] = project_leader_filter
-    if sort_by != 'deadline':
+    def_sort_by, def_sort_dir = _assigned_list_default_sort(tab_active)
+    if sort_by != def_sort_by:
         d['sort_by'] = sort_by
-    if sort_dir != 'asc':
+    if sort_dir != def_sort_dir:
         d['sort_dir'] = sort_dir
     return d
 
@@ -1507,14 +1518,21 @@ def coaching_dashboard():
 
     if search_arg:
         pattern = f"%{search_arg}%"
-        list_filters.append(
-            or_(
-                TeamMember.name.ilike(pattern),
-                User.username.ilike(pattern),
-                Coaching.coaching_subject.ilike(pattern),
-                Coaching.coach_notes.ilike(pattern),
+        member_name_clause = ilike_person_name_search_expr(TeamMember.name, search_arg)
+        coach_name_clause = ilike_person_name_search_expr(User.username, search_arg)
+        CoachTm = aliased(TeamMember)
+        coach_tm_name_clause = ilike_person_name_search_expr(CoachTm.name, search_arg)
+        search_clauses = [
+            member_name_clause,
+            coach_name_clause,
+            Coaching.coaching_subject.ilike(pattern),
+            Coaching.coach_notes.ilike(pattern),
+        ]
+        if coach_tm_name_clause is not None:
+            search_clauses.append(
+                exists().where(CoachTm.user_id == User.id, coach_tm_name_clause)
             )
-        )
+        list_filters.append(or_(*search_clauses))
 
     if not sees_all_teams:
         if my_dash_team_ids:
@@ -4027,10 +4045,11 @@ def assigned_coachings():
     coach_filter = request.args.get('coach', type=int)
     member_filter = request.args.get('member', type=int)
     search_term = (request.args.get('search') or '').strip()
-    sort_by = request.args.get('sort_by', 'deadline')
-    sort_dir = request.args.get('sort_dir', 'asc')
+    def_sort_by, def_sort_dir = _assigned_list_default_sort(tab_active)
+    sort_by = request.args.get('sort_by', def_sort_by)
+    sort_dir = request.args.get('sort_dir', def_sort_dir)
     if sort_dir not in ('asc', 'desc'):
-        sort_dir = 'asc'
+        sort_dir = def_sort_dir
 
     all_teams = _teams_for_assigned_coaching_filters(project_id_single=project_id)
     visible_team_ids = [t.id for t in all_teams]
@@ -4155,9 +4174,9 @@ def assigned_coachings():
         project_bar_extra_hidden['member'] = member_filter
     if search_term:
         project_bar_extra_hidden['search'] = search_term
-    if sort_by not in ('deadline',):
+    if sort_by != def_sort_by:
         project_bar_extra_hidden['sort_by'] = sort_by
-    if sort_dir != 'asc':
+    if sort_dir != def_sort_dir:
         project_bar_extra_hidden['sort_dir'] = sort_dir
 
     return render_template(
@@ -4196,7 +4215,11 @@ def create_assigned_coaching():
     selected_member_ids = _member_ids_from_assign_request()
     tm_for_coaches = selected_member_ids[0] if len(selected_member_ids) == 1 else None
 
-    form = AssignedCoachingForm(allowed_project_ids=[project_id], team_member_id=tm_for_coaches)
+    form = AssignedCoachingForm(
+        allowed_project_ids=[project_id],
+        team_member_id=tm_for_coaches,
+        team_member_ids=selected_member_ids if len(selected_member_ids) > 1 else None,
+    )
     if request.method == 'GET' and len(selected_member_ids) == 1:
         form.team_member_id.data = selected_member_ids[0]
 
@@ -4230,7 +4253,14 @@ def create_assigned_coaching():
             flash('Bitte mindestens ein Teammitglied auswählen.', 'danger')
             return redirect(url_for('main.create_assigned_coaching', project=project_id))
 
-        coach_u = User.query.get(form.coach_id.data)
+        coach_u = (
+            User.query.options(
+                joinedload(User.role).selectinload(Role.permissions),
+                selectinload(User.teams_led),
+                selectinload(User.team_members).joinedload(TeamMember.team),
+                selectinload(User.projects),
+            ).get(form.coach_id.data)
+        )
         d = form.deadline.data
         dl = datetime(d.year, d.month, d.day, 23, 59, 59)
         note_raw = request.form.get('current_note')
@@ -4239,10 +4269,22 @@ def create_assigned_coaching():
         except (TypeError, ValueError):
             cur_note = None
 
+        assign_ctx = _build_assignment_coach_eval_context(project_id, submit_ids, for_assignment=True)
+        if coach_u:
+            assign_ctx['teams_by_id'] = _teams_by_id_for_leader_refs([coach_u])
+
+        members_by_id = {
+            m.id: m for m in (
+                TeamMember.query.options(joinedload(TeamMember.team))
+                .filter(TeamMember.id.in_(submit_ids))
+                .all()
+            )
+        }
+
         created = 0
         skipped = 0
         for mid in submit_ids:
-            tm_as = TeamMember.query.options(joinedload(TeamMember.team)).get(mid)
+            tm_as = members_by_id.get(mid)
             if not tm_as or not tm_as.team or tm_as.team.project_id != project_id:
                 skipped += 1
                 continue
@@ -4250,7 +4292,7 @@ def create_assigned_coaching():
                 skipped += 1
                 continue
             if not coach_u or not user_eligible_assignable_coach(
-                coach_u, project_id, mid, for_assignment=True
+                coach_u, project_id, mid, for_assignment=True, ctx=assign_ctx
             ):
                 skipped += 1
                 continue
@@ -4301,7 +4343,7 @@ def api_assignment_coaches():
     project_id = get_visible_project_id()
     if not project_id:
         return jsonify([])
-    mids = request.args.getlist('team_member_ids')
+    mids = request.args.getlist('team_member_ids') or request.args.getlist('team_member_ids[]')
     parsed = []
     for raw in mids:
         for part in str(raw).split(','):
@@ -4313,10 +4355,14 @@ def api_assignment_coaches():
         if mid:
             parsed = [mid]
     valid = []
-    for mid in parsed:
-        m = TeamMember.query.get(mid)
-        if m and m.team and m.team.project_id == project_id:
-            valid.append(mid)
+    if parsed:
+        valid = [
+            m.id for m in (
+                TeamMember.query.join(Team, TeamMember.team_id == Team.id)
+                .filter(TeamMember.id.in_(parsed), Team.project_id == project_id)
+                .all()
+            )
+        ]
     if len(valid) > 1:
         coaches = users_for_assignment_coach_dropdown_multi(project_id, valid)
     elif len(valid) == 1:
@@ -4363,10 +4409,11 @@ def assigned_coachings_gesamtbericht():
     coach_filter = request.args.get('coach', type=int)
     member_filter = request.args.get('member', type=int)
     search_term = (request.args.get('search') or '').strip()
-    sort_by = request.args.get('sort_by', 'deadline')
-    sort_dir = request.args.get('sort_dir', 'asc')
+    def_sort_by, def_sort_dir = _assigned_list_default_sort(tab_active)
+    sort_by = request.args.get('sort_by', def_sort_by)
+    sort_dir = request.args.get('sort_dir', def_sort_dir)
     if sort_dir not in ('asc', 'desc'):
-        sort_dir = 'asc'
+        sort_dir = def_sort_dir
 
     acc = get_accessible_project_ids()
     assigned_tabs_project_id = get_visible_project_id()
@@ -4552,6 +4599,8 @@ def assigned_coachings_gesamtbericht():
     elif sort_by == 'project_name':
         q = q.join(Project, Team.project_id == Project.id)
         order_expr = Project.name
+    elif sort_by == 'start':
+        order_expr = AssignedCoaching.created_at
     else:
         order_expr = AssignedCoaching.deadline
 
