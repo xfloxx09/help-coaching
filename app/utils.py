@@ -3,7 +3,6 @@ from datetime import datetime, date, time, timezone, timedelta
 from zoneinfo import ZoneInfo
 from flask_login import current_user
 from flask import flash, redirect, url_for
-from sqlalchemy import and_, or_
 from sqlalchemy.exc import SQLAlchemyError
 from app import db
 from app.models import Team, Project, Role, TeamMember, User, LeitfadenItem, CoachingThemaItem, CoachingBogenLayout
@@ -20,24 +19,6 @@ ROLE_ABTEILUNGSLEITER = 'Abteilungsleiter'
 ROLE_MITARBEITER = 'Mitarbeiter'
 
 ARCHIV_TEAM_NAME = "ARCHIV"
-
-
-def ilike_person_name_search_expr(column, search_arg):
-    """
-    Flexible person-name filter: full phrase, reversed word order, or all tokens present.
-    E.g. 'Max Mustermann' matches 'Mustermann Max' and 'Max Mustermann'.
-    """
-    raw = (search_arg or '').strip()
-    if not raw:
-        return None
-    clauses = [column.ilike(f'%{raw}%')]
-    tokens = [t for t in raw.split() if t]
-    if len(tokens) >= 2:
-        reversed_phrase = ' '.join(reversed(tokens))
-        if reversed_phrase.lower() != raw.lower():
-            clauses.append(column.ilike(f'%{reversed_phrase}%'))
-        clauses.append(and_(*[column.ilike(f'%{tok}%') for tok in tokens]))
-    return or_(*clauses)
 
 
 def leitfaden_items_for_project(project_id):
@@ -364,11 +345,6 @@ def user_eligible_assignable_coach(user, project_id, team_member_id=None, for_as
         for tm2 in user.team_members:
             if tm2.team and live_proj(tm2.team):
                 allowed_team_ids.add(tm2.team_id)
-        tid_leader = getattr(user, 'team_id_if_leader', None)
-        if tid_leader:
-            t_leader = db.session.get(Team, tid_leader)
-            if live_proj(t_leader):
-                allowed_team_ids.add(t_leader.id)
         if tm_coachee.team_id not in allowed_team_ids:
             return False
 

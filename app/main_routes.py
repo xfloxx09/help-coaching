@@ -36,7 +36,6 @@ from app.utils import (
     ROLE_TRAINER,
     get_or_create_archiv_team,
     ARCHIV_TEAM_NAME,
-    ilike_person_name_search_expr,
     get_accessible_project_ids,
     team_member_eligible_for_new_coaching,
     team_member_eligible_for_coaching_assignment,
@@ -1508,21 +1507,14 @@ def coaching_dashboard():
 
     if search_arg:
         pattern = f"%{search_arg}%"
-        member_name_clause = ilike_person_name_search_expr(TeamMember.name, search_arg)
-        coach_name_clause = ilike_person_name_search_expr(User.username, search_arg)
-        CoachTm = aliased(TeamMember)
-        coach_tm_name_clause = ilike_person_name_search_expr(CoachTm.name, search_arg)
-        search_clauses = [
-            member_name_clause,
-            coach_name_clause,
-            Coaching.coaching_subject.ilike(pattern),
-            Coaching.coach_notes.ilike(pattern),
-        ]
-        if coach_tm_name_clause is not None:
-            search_clauses.append(
-                exists().where(CoachTm.user_id == User.id, coach_tm_name_clause)
+        list_filters.append(
+            or_(
+                TeamMember.name.ilike(pattern),
+                User.username.ilike(pattern),
+                Coaching.coaching_subject.ilike(pattern),
+                Coaching.coach_notes.ilike(pattern),
             )
-        list_filters.append(or_(*search_clauses))
+        )
 
     if not sees_all_teams:
         if my_dash_team_ids:
@@ -4204,11 +4196,7 @@ def create_assigned_coaching():
     selected_member_ids = _member_ids_from_assign_request()
     tm_for_coaches = selected_member_ids[0] if len(selected_member_ids) == 1 else None
 
-    form = AssignedCoachingForm(
-        allowed_project_ids=[project_id],
-        team_member_id=tm_for_coaches,
-        team_member_ids=selected_member_ids if len(selected_member_ids) > 1 else None,
-    )
+    form = AssignedCoachingForm(allowed_project_ids=[project_id], team_member_id=tm_for_coaches)
     if request.method == 'GET' and len(selected_member_ids) == 1:
         form.team_member_id.data = selected_member_ids[0]
 
@@ -4313,7 +4301,7 @@ def api_assignment_coaches():
     project_id = get_visible_project_id()
     if not project_id:
         return jsonify([])
-    mids = request.args.getlist('team_member_ids') or request.args.getlist('team_member_ids[]')
+    mids = request.args.getlist('team_member_ids')
     parsed = []
     for raw in mids:
         for part in str(raw).split(','):
@@ -4564,8 +4552,6 @@ def assigned_coachings_gesamtbericht():
     elif sort_by == 'project_name':
         q = q.join(Project, Team.project_id == Project.id)
         order_expr = Project.name
-    elif sort_by == 'start':
-        order_expr = AssignedCoaching.created_at
     else:
         order_expr = AssignedCoaching.deadline
 
